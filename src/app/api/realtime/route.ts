@@ -1,7 +1,5 @@
 import OpenAI from 'openai';
-import fs from 'fs';
 import { generateId, base64ToInt16Array, int16ArrayToWavBuffer, int16ArrayToBase64 } from '@/lib/utils';
-import { join } from 'path';
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -26,7 +24,9 @@ interface RealTimePayload {
     event_id: string;
     author: 'Server' | 'Client';
     content?: string;
+    messageType?: 'transcription' | 'response';
     audio?: string;
+    history?: { role: 'user' | 'assistant'; content: string }[];
 }
 
 export function SOCKET(
@@ -56,30 +56,20 @@ export function SOCKET(
             const payload = JSON.parse(message.toString()) as RealTimePayload;
 
             if (payload.type === 'audio' && payload.audio) {
-                console.log(JSON.stringify(Object.keys(payload), null, 2));
 
                 // 将 base64 转回 Int16Array
                 const audioData = base64ToInt16Array(payload.audio);
 
                 // 转换为 WAV 格式，确保采样率为 16kHz
                 const wavBuffer = int16ArrayToWavBuffer(audioData, 16000);
-
-                console.log('wavBuffer.length', wavBuffer.length);
                 
                 const file = new File([wavBuffer], "audio.wav", { type: "audio/wav" });
 
-                console.log('file', file);
-
-                // save to local
-                fs.writeFileSync(join(process.cwd(), 'audio.wav'), wavBuffer);
-                
                 // 1. 语音转文本
                 const transcription = await openai.audio.transcriptions.create({
-                    file: new File([wavBuffer], "audio.wav", { type: "audio/wav" }),
+                    file,
                     model: "whisper-1",
                 });
-
-                console.log('transcription.text', transcription.text);
 
                 // 发送语音识别结果到前端
                 send({
@@ -90,12 +80,15 @@ export function SOCKET(
                     event_id: generateId('evt_'),
                 });
 
-                // 2. 生成 AI 回复
+                // 2. 生成 AI 回复，包含历史记录
+                const messages = [
+                    ...(payload.history || []),
+                    { role: "user" as const, content: transcription.text }
+                ];
+
                 const completion = await openai.chat.completions.create({
                     model: "gpt-3.5-turbo",
-                    messages: [
-                        { role: "user", content: transcription.text }
-                    ],
+                    messages,
                 });
 
                 const aiResponse = completion.choices[0].message.content ?? '';
@@ -110,10 +103,10 @@ export function SOCKET(
                 // 3. 文本转语音，指定采样率为 16kHz
                 const mp3 = await openai.audio.speech.create({
                     model: "tts-1",
-                    voice: "alloy",
+                    voice: "fable",
                     input: aiResponse,
                     response_format: "pcm", // 使用 PCM 格式
-                    speed: 1.0,
+                    speed: 2.0, // 语速
                 });
 
                 // 4. 发送音频响应

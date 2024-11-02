@@ -28,7 +28,7 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isKeyDownRef = useRef(false);
 
-  const handleProcessAudio = async (audioData: Int16Array): Promise<Int16Array> => {
+  const handleProcessAudio = useCallback(async (audioData: Int16Array): Promise<Int16Array> => {
     return new Promise((resolve, reject) => {
         try {
             // 创建一个一次性的消息处理器
@@ -53,10 +53,10 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
                     setVoiceState('aiSpeaking');
                     
                     // 播放完成后设置为等待状态
-                    const audioLength = resAudioData.length / 16000; // 假设采样率为 16kHz
+                    const audioLength = resAudioData.length / 16000;
                     setTimeout(() => {
                         setVoiceState('pending');
-                    }, audioLength * 1000 + 500); // 加上500ms的缓冲时间
+                    }, audioLength * 1000 + 500);
                     resolve(resAudioData);
                 }
             };
@@ -64,8 +64,14 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
             // 添加临时消息处理器
             clientRef.current.addMessageHandler(messageHandler);
             
-            // 发送音频数据到服务器
-            clientRef.current.sendAudio(audioData);
+            // 转换消息历史格式并发送
+            const history = messages.map(msg => ({
+                role: msg.type === 'user' ? 'user' as const : 'assistant' as const,
+                content: msg.content
+            }));
+            
+            // 发送音频数据和历史记录到服务器
+            clientRef.current.sendAudio(audioData, history);
 
             // 设置超时
             setTimeout(() => {
@@ -78,7 +84,7 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
             reject(error);
         }
     });
-};
+}, [messages]);
 
   const {
     isRecording,

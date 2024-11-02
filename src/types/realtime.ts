@@ -6,6 +6,7 @@ export interface RealTimeMessage {
   audio?: string;
   text?: string;
   messageType?: 'transcription' | 'response';
+  history?: { role: 'user' | 'assistant'; content: string }[];
 }
 
 export interface RealTimeError {

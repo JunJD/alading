@@ -79,7 +79,7 @@ export class RealtimeClient {
         this.messageHandlers.clear();
     }
 
-    sendAudio(audioData: Int16Array) {
+    sendAudio(audioData: Int16Array, history: { role: 'user' | 'assistant'; content: string }[] = []) {
         if (!this.ws) return;
 
         const message: RealTimeMessage = {
@@ -87,6 +87,7 @@ export class RealtimeClient {
             event_id: crypto.randomUUID(),
             author: 'Client',
             audio: int16ArrayToBase64(audioData),
+            history,
         };
 
         this.ws.send(JSON.stringify(message));
