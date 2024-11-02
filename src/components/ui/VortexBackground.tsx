@@ -2,13 +2,13 @@ import { cn } from "@/lib/utils";
 import React, { useEffect, useRef } from "react";
 import { createNoise3D } from "simplex-noise";
 import { motion } from "framer-motion";
-import { VoiceState } from "@/types/interview";
+import { InterviewState } from "@/types/interview";
 
 interface VortexProps {
   children: React.ReactNode;
   className?: string;
   containerClassName?: string;
-  voiceState: VoiceState;
+  voiceState: InterviewState;
 }
 
 export const Vortex = ({ children, className, containerClassName, voiceState }: VortexProps) => {

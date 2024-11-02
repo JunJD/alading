@@ -1,10 +1,10 @@
 "use client"
 import { useEffect, useRef, useMemo } from "react"
-import { VoiceState } from "@/types/interview"
+import { InterviewState } from "@/types/interview"
 import { particleActions } from "@/lib/particle-manager"
 
 interface ParticleCanvasProps {
-  voiceState: VoiceState;
+  voiceState: InterviewState;
   className?: string;
 }
 

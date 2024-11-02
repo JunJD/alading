@@ -1,11 +1,13 @@
 {
     "cSpell.words": [
         "clsx",
+        "ondataavailable",
         "onnx",
         "onnxruntime",
         "puhui",
         "silero",
         "tsparticles",
+        "wavtools",
         "worklets"
     ]
 }

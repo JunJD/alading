@@ -23,4 +23,12 @@ export type InterviewConfig = {
   };
 };
 
-export type VoiceState = 'idle' | 'userSpeaking' | 'aiSpeaking' | 'pending'; 
+export type InterviewState = 'idle' | 'userSpeaking' | 'aiSpeaking' | 'processing' | 'connected' | 'pending';
+export type RecordingMode = 'manual' | 'vad';
+
+export interface Message {
+  id: string;
+  role: 'ai' | 'user';
+  content: string;
+  timestamp: Date;
+} 

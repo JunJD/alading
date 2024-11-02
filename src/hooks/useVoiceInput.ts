@@ -1,147 +1,156 @@
 "use client";
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { useMicVAD, type ReactRealTimeVADOptions } from "@ricky0123/vad-react";
+import { useState, useCallback, useRef } from 'react';
+import { WavRecorder, WavStreamPlayer } from '@/lib/wavtools';
 
 interface UseVoiceInputProps {
-  onTranscript: (text: string) => void;
-  isVadMode: boolean;
-  setIsVadMode: (value: boolean) => void;
+  onProcessAudio?: (audioData: Int16Array) => Promise<Int16Array>;
 }
 
-export const useVoiceInput = ({ onTranscript, isVadMode, setIsVadMode }: UseVoiceInputProps) => {
+interface UseVoiceInputReturn {
+  isRecording: boolean;
+  isConnected: boolean;
+  startRecording: () => Promise<void>;
+  stopRecording: () => Promise<void>;
+  connectConversation: () => Promise<void>;
+  disconnectConversation: () => Promise<void>;
+  playAudio: (audioData: Int16Array) => Promise<void>;
+  appendAudio: (audioData: Int16Array) => void;
+}
+
+export const useVoiceInput = ({
+  onProcessAudio
+}: UseVoiceInputProps): UseVoiceInputReturn => {
   const [isRecording, setIsRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
-  const loadingRef = useRef(false);
+  const [isConnected, setIsConnected] = useState(false);
 
-  // 处理 VAD 音频数据
-  const handleVADAudio = useCallback(async (audio: Float32Array) => {
-    // 这里可以添加实际的音频处理逻辑
-    console.log("处理 VAD 音频数据:", audio.length);
-    onTranscript("VAD 模式检测到的语音内容（模拟）");
-  }, [onTranscript]);
+  const wavRecorderRef = useRef<WavRecorder>(new WavRecorder({ sampleRate: 16000 }));
+  const wavStreamPlayerRef = useRef<WavStreamPlayer>(new WavStreamPlayer({ sampleRate: 16000 }));
+  const localInt16Array = useRef<Int16Array>(new Int16Array(0));
+  const audioHistoryRef = useRef<Int16Array[]>([]);
 
-  // VAD 配置
-  const vadOptions: Partial<ReactRealTimeVADOptions> = {
-    workletURL: "/vad.worklet.bundle.min.js",
-    modelURL: "/silero_vad.onnx",
-    preSpeechPadFrames: 5,
-    positiveSpeechThreshold: 0.90,
-    negativeSpeechThreshold: 0.75,
-    minSpeechFrames: 4,
-    startOnLoad: isVadMode,
-    onSpeechStart: () => {
-      console.log("VAD: Speech started");
-      setIsRecording(true);
-    },
-    onSpeechEnd: handleVADAudio,
-    onVADMisfire: () => {
-      console.log("VAD: Misfire");
-      setIsRecording(false);
+  const appendAudio = useCallback((audioData: Int16Array) => {
+    audioHistoryRef.current.push(audioData);
+    localInt16Array.current = mergeInt16Arrays(
+      localInt16Array.current,
+      audioData,
+    );
+  }, []);
+
+  const mergeInt16Arrays = (left: Int16Array | ArrayBuffer, right: Int16Array | ArrayBuffer) => {
+    if (left instanceof ArrayBuffer) left = new Int16Array(left);
+    if (right instanceof ArrayBuffer) right = new Int16Array(right);
+    if (!(left instanceof Int16Array) || !(right instanceof Int16Array)) {
+      throw new Error(`Both items must be Int16Array`);
     }
+    const newValues = new Int16Array(left.length + right.length);
+    for (let i = 0; i < left.length; i++) newValues[i] = left[i];
+    for (let j = 0; j < right.length; j++) newValues[left.length + j] = right[j];
+    return newValues;
   };
 
-  const vad = useMicVAD(vadOptions);
-
-  // 切换 VAD 模式
-  const toggleVadMode = useCallback(() => {
-    if (isRecording) {
-      stopRecording();
-    }
-    setIsVadMode(!isVadMode);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRecording, isVadMode, setIsVadMode]);
-
-  // 初始化普通录音模式
-  const initializeRecording = useCallback(async () => {
-    if (isVadMode) return; // VAD 模式下不初始化普通录音
-
-    console.log("初始化录音设备");
+  const connectConversation = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log("获取到音频流");
-      const recorder = new MediaRecorder(stream);
-      
-      recorder.ondataavailable = (event) => {
-        console.log("收到音频数据", event.data.size);
-        if (event.data.size > 0) {
-          setAudioChunks(prev => [...prev, event.data]);
-        }
-      };
-
-      recorder.onstop = async () => {
-        console.log("录音停止");
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-        console.log("音频大小:", audioBlob.size);
-        // 这里可以处理普通模式下的音频数据
-        onTranscript("这是一个模拟的语音识别结果。");
-        setAudioChunks([]);
-      };
-
-      setMediaRecorder(recorder);
+      await wavRecorderRef.current.begin();
+      await wavStreamPlayerRef.current.connect();
+      setIsConnected(true);
+      console.log('连接成功');
     } catch (error) {
-      console.error('获取麦克风失败:', error);
+      console.error('连接失败:', error);
     }
-  }, [isVadMode, audioChunks, onTranscript]);
+  }, []);
 
-  const startRecording = useCallback(() => {
-    if (isVadMode) {
-      vad.start();
-      return;
+  const disconnectConversation = useCallback(async () => {
+    try {
+      if (isRecording) {
+        await wavRecorderRef.current.pause();
+        setIsRecording(false);
+      }
+      await wavRecorderRef.current.end();
+      await wavStreamPlayerRef.current.interrupt();
+      localInt16Array.current = new Int16Array(0);
+      audioHistoryRef.current = [];
+      setIsConnected(false);
+      console.log('断开连接成功');
+    } catch (error) {
+      console.error('断开连接失败:', error);
     }
+  }, [isRecording]);
 
-    console.log("开始录音", mediaRecorder?.state);
-    if (mediaRecorder && mediaRecorder.state === 'inactive') {
-      mediaRecorder.start();
+  const startRecording = useCallback(async () => {
+    if (!isConnected) return;
+
+    try {
+      localInt16Array.current = new Int16Array(0);
       setIsRecording(true);
-    }
-  }, [mediaRecorder, isVadMode, vad]);
-
-  const stopRecording = useCallback(() => {
-    if (isVadMode) {
-      vad.pause();
-      return;
-    }
-
-    console.log("停止录音", mediaRecorder?.state);
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop();
+      await wavRecorderRef.current.record((data) => {
+        localInt16Array.current = mergeInt16Arrays(
+          localInt16Array.current,
+          data.mono,
+        );
+      });
+      console.log('开始录音成功');
+    } catch (error) {
+      console.error('开始录音失败:', error);
       setIsRecording(false);
     }
-  }, [mediaRecorder, isVadMode, vad]);
+  }, [isConnected]);
 
-  useEffect(() => {
-    if (!isVadMode) {
-      initializeRecording();
-    }
-    return () => {
-      if (mediaRecorder) {
-        if (mediaRecorder.state === 'recording') {
-          mediaRecorder.stop();
-        }
-        mediaRecorder.stream.getTracks().forEach(track => {
-          console.log("关闭音频轨道");
-          track.stop();
-        });
+  const playAudio = useCallback(async (audioData: Int16Array) => {
+    try {
+      await wavStreamPlayerRef.current.interrupt();
+      
+      const len = audioData.byteLength;
+      let offset = 0;
+      while (offset < len) {
+        const chunk = audioData.slice(offset, offset + 16000);
+        await wavStreamPlayerRef.current.add16BitPCM(
+          chunk, 
+          `audio-chunk-${offset / 16000}`
+        );
+        offset += 16000;
       }
-    };
-  }, [initializeRecording, mediaRecorder, isVadMode]);
-
-  useEffect(() => {
-    if (vad && loadingRef.current !== vad.loading) {
-      console.log("VAD loading state:", vad.loading);
-      loadingRef.current = vad.loading;
+    } catch (error) {
+      console.error('播放音频失败:', error);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vad?.loading]);
+  }, []);
+
+  const stopRecording = useCallback(async () => {
+    if (!isRecording) return;
+
+    try {
+        setIsRecording(false);
+        await wavRecorderRef.current.pause();
+        
+        if (localInt16Array.current.length > 0) {
+            const currentAudio = localInt16Array.current.slice();
+            localInt16Array.current = new Int16Array(0);
+            
+            console.log('录音结束，数据长度:', currentAudio.length);
+            
+            if (onProcessAudio) {
+                try {
+                    const processedAudio = await onProcessAudio(currentAudio);
+                    await playAudio(processedAudio);
+                    appendAudio(processedAudio);
+                } catch (error) {
+                    console.error('音频处理失败:', error);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('停止录音失败:', error);
+    }
+}, [isRecording, onProcessAudio, appendAudio, playAudio]);
+
 
   return {
     isRecording,
+    isConnected,
     startRecording,
     stopRecording,
-    isVadLoading: vad.loading,
-    isVadListening: vad.listening,
-    vadError: vad.errored,
-    toggleVadMode,
+    connectConversation,
+    disconnectConversation,
+    playAudio,
+    appendAudio,
   };
 }; 

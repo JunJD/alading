@@ -1,8 +1,8 @@
 "use client"
-import { VoiceState } from "@/types/interview"
+import { InterviewState } from "@/types/interview"
 import { motion } from "framer-motion"
 
-export const VoiceStateIcon = ({ state }: { state: VoiceState }) => {
+export const VoiceStateIcon = ({ state }: { state: InterviewState }) => {
   const renderIcon = () => {
     switch (state) {
       case 'userSpeaking':

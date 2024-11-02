@@ -1,12 +1,15 @@
 "use client"
 import { useState, useEffect, useCallback, useRef } from "react"
-import { VoiceState } from "@/types/interview"
+import { InterviewState } from "@/types/interview"
 import { VoiceStateIcon } from "../ui/VoiceStateIcon"
 import { InterviewConfig } from "@/types/interview"
 import { ParticleCanvas } from "../ui/ParticleCanvas"
 import { useVoiceInput } from "@/hooks/useVoiceInput"
 import { AnimatePresence, motion } from "framer-motion"
 import { useRouter } from "next/navigation"
+import { RealtimeClient } from '@/lib/realtime-client';
+import { RealTimeResponse } from '@/types/realtime';
+import { base64ToInt16Array } from "@/lib/utils"
 
 interface Message {
   id: string;
@@ -17,147 +20,189 @@ interface Message {
 
 export function InterviewRoom({ config }: { config: InterviewConfig }) {
   const router = useRouter()
-  const [voiceState, setVoiceState] = useState<VoiceState>('idle')
-  const [isVadMode, setIsVadMode] = useState(false)
-  const [transcript, setTranscript] = useState("")
+  const [voiceState, setVoiceState] = useState<InterviewState>('idle')
   const [messages, setMessages] = useState<Message[]>([])
-  const [isTyping, setIsTyping] = useState(false)
 
-  // 添加一个定时器引用
+
   const pendingTimerRef = useRef<NodeJS.Timeout>();
-
-  // 添加自动滚动到底部的功能
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isKeyDownRef = useRef(false);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const handleProcessAudio = async (audioData: Int16Array): Promise<Int16Array> => {
+    return new Promise((resolve, reject) => {
+        try {
+            // 创建一个一次性的消息处理器
+            const messageHandler = (data: RealTimeResponse) => {
+                if (data.type === 'text' && data.content) {
+                    // 处理文本响应
+                    if (data.author === 'Server') {
+                        setMessages(prev => [...prev, {
+                            id: Date.now().toString(),
+                            type: data.messageType === 'transcription' ? 'user' : 'ai',
+                            content: data.content || '',
+                            timestamp: new Date()
+                        }]);
+                    }
+                }
+                else if (data.type === 'audio' && data.audio) {
+                    // 收到服务器返回的处理后的音频
+                    clientRef.current.removeMessageHandler(messageHandler);
+                    const resAudioData = base64ToInt16Array(data.audio);
+                    
+                    // 设置为 AI 说话状态
+                    setVoiceState('aiSpeaking');
+                    
+                    // 播放完成后设置为等待状态
+                    const audioLength = resAudioData.length / 16000; // 假设采样率为 16kHz
+                    setTimeout(() => {
+                        setVoiceState('pending');
+                    }, audioLength * 1000 + 500); // 加上500ms的缓冲时间
+                    resolve(resAudioData);
+                }
+            };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
+            // 添加临时消息处理器
+            clientRef.current.addMessageHandler(messageHandler);
+            
+            // 发送音频数据到服务器
+            clientRef.current.sendAudio(audioData);
 
-  // 修改 AI 回复逻辑
-  const simulateAIResponse = async (userMessage: string) => {
-    console.log("模拟 AI 响应:", userMessage);
-    const responses = [
-      "你的回答很有见地。不过，你能具体说说在实际工作中是如何应用这些经验的吗？",
-      "这个观点很有意思。让我们深入探讨一下，你是如何处理相关的挑战的？",
-      "听起来你在这个领域有不少经验。能分享一个具体的例子吗？",
-      "你提到了一些关键点。在团队协作中，你是如何运用这些技能的？",
-      "这个思路很好，不过在实际项目中可能会遇到一些困难，你是如何克服的？"
-    ];
-    
-    setIsTyping(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const response = responses[Math.floor(Math.random() * responses.length)];
-    setMessages(prev => [...prev, {
-      id: Date.now().toString(),
-      type: 'ai',
-      content: response,
-      timestamp: new Date()
-    }]);
-    setIsTyping(false);
-    
-    // AI 说完话后2秒设置为 pending 状态
-    if (pendingTimerRef.current) {
-      clearTimeout(pendingTimerRef.current);
-    }
-    pendingTimerRef.current = setTimeout(() => {
-      // 只有当前状态是 aiSpeaking 时才切换到 pending
-      setVoiceState(currentState => 
-        currentState === 'aiSpeaking' ? 'pending' : currentState
-      );
-    }, 2000);
-  };
+            // 设置超时
+            setTimeout(() => {
+                clientRef.current.removeMessageHandler(messageHandler);
+                reject(new Error('处理音频超时'));
+            }, 30000);
 
-  const handleTranscript = useCallback((text: string) => {
-    console.log("收到语音识别结果:", text);
-    if (pendingTimerRef.current) {
-      clearTimeout(pendingTimerRef.current);
-    }
+        } catch (error) {
+            console.error('音频处理失败:', error);
+            reject(error);
+        }
+    });
+};
 
-    setTranscript(text);
-    setMessages(prev => [...prev, {
-      id: Date.now().toString(),
-      type: 'user',
-      content: text,
-      timestamp: new Date()
-    }]);
-    
-    setVoiceState('pending');
-    setTimeout(() => {
-      setVoiceState('aiSpeaking');
-      simulateAIResponse(text);
-    }, 1000);
-  }, []);
-
-  const { 
-    isRecording, 
-    startRecording, 
-    stopRecording, 
-    isVadLoading: vadLoading,
-    isVadListening,
-    vadError,
-    toggleVadMode
+  const {
+    isRecording,
+    startRecording,
+    stopRecording,
+    connectConversation,
+    disconnectConversation,
+    isConnected,
   } = useVoiceInput({
-    onTranscript: handleTranscript,
-    isVadMode,
-    setIsVadMode,
+    onProcessAudio: handleProcessAudio,
   });
 
-  // 按键处理
+  const isMounted = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      if (!isMounted.current) {
+        isMounted.current = true;
+      }
+    }
+  }, []);
+
+  // 组件挂载时连接，卸载时断开
+  useEffect(() => {
+    connectConversation();
+    return () => {
+      if (isMounted.current && isConnected) {
+        disconnectConversation();
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.code === 'Space' && !isVadMode && !isRecording) {
+    if (e.code === 'Space' && !isRecording && !isKeyDownRef.current) {
       e.preventDefault();
+      isKeyDownRef.current = true;
+      console.log('空格键按下，开始录音');
       if (pendingTimerRef.current) {
         clearTimeout(pendingTimerRef.current);
       }
       setVoiceState('userSpeaking');
       startRecording();
     }
-  }, [isVadMode, isRecording, startRecording]);
+  }, [isRecording, startRecording]);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
-    if (e.code === 'Space' && !isVadMode && isRecording) {
-      console.log("空格键释放，停止录音");
+    if (e.code === 'Space' && isRecording) {
       e.preventDefault();
+      isKeyDownRef.current = false;
+      console.log('空格键释放，停止录音');
+      setVoiceState("pending");
       stopRecording();
     }
-  }, [isVadMode, isRecording, stopRecording]);
+  }, [isRecording, stopRecording]);
 
   useEffect(() => {
+    const handleBlur = () => {
+      if (isKeyDownRef.current && isRecording) {
+        stopRecording();
+      }
+      isKeyDownRef.current = false;
+    };
+
+    window.addEventListener('blur', handleBlur);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+
     return () => {
+      window.removeEventListener('blur', handleBlur);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleKeyDown, handleKeyUp]);
+  }, [handleKeyDown, handleKeyUp, isRecording, stopRecording]);
 
   useEffect(() => {
-    if (isVadMode) {
-      console.log("VAD 模式状态:", { isVadListening, vadError });
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+  // const handleRealtimeMessage = useCallback((data: RealTimeResponse) => {
+  //   console.log('handleRealtimeMessage 收到服务器消息:', data);
+  //   if (data.type === 'response' && 'text' in data && 'audio' in data) {
+  //     setMessages(prev => [...prev, {
+  //       id: Date.now().toString(),
+  //       type: 'ai',
+  //       content: data.text || '',
+  //       timestamp: new Date()
+  //     }]);
+
+  //     if (data.audio) {
+  //       playAudio(base64ToInt16Array(data.audio));
+  //     }
+  //   }
+  // }, [playAudio]);
+
+  const handleRealtimeError = useCallback((error: WebSocket['onerror']) => {
+    console.error('Realtime error:', error);
+    // 可以添加错误提示UI
+  }, []);
+
+  const clientRef = useRef<RealtimeClient>(
+    new RealtimeClient({
+      url: `ws://${window.location.host}/api/realtime`,
+      // onMessage: handleRealtimeMessage,
+      onError: handleRealtimeError,
+    })
+  );
+
+  useEffect(() => {
+    if (isMounted.current) {
+      clientRef.current.connect();
     }
-  }, [isVadMode, isVadListening, vadError]);
-
-  // 清理定时器
-  useEffect(() => {
-    return () => {
-      if (pendingTimerRef.current) {
-        clearTimeout(pendingTimerRef.current);
-      }
-    };
   }, []);
 
   return (
     <div className="relative min-h-screen flex">
       {/* Canvas 背景 - 使用 flex-1 自适应宽度 */}
       <div className="relative flex-1 min-w-[500px]">
-        <ParticleCanvas 
-          voiceState={voiceState} 
-          className="!absolute !w-full !h-full !inset-0" 
+        <ParticleCanvas
+          voiceState={voiceState}
+          className="!absolute !w-full !h-full !inset-0"
         />
       </div>
 
@@ -171,17 +216,17 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
                 onClick={() => router.push('/')}
                 className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/10"
               >
-                <svg 
-                  className="w-5 h-5 text-white" 
-                  fill="none" 
-                  stroke="currentColor" 
+                <svg
+                  className="w-5 h-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18" 
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
                   />
                 </svg>
               </button>
@@ -189,15 +234,6 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
                 {config.industry?.name} - {config.type?.name}
               </h1>
             </div>
-            <button
-              onClick={toggleVadMode}
-              disabled={vadLoading}
-              className={`px-4 py-2 rounded-full ${
-                isVadMode ? 'bg-blue-500/20' : 'bg-gray-600/20'
-              } text-white backdrop-blur-sm border border-white/10 hover:bg-opacity-30 transition-colors`}
-            >
-              {vadLoading ? 'VAD 加载中...' : `VAD 模式 ${isVadMode ? '开启' : '关闭'}`}
-            </button>
           </div>
 
           {/* 对话展示区域 - 使用 flex-1 自动占据剩余空间 */}
@@ -217,11 +253,10 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
                     <motion.div
                       initial={{ scale: 0.9 }}
                       animate={{ scale: 1 }}
-                      className={`max-w-[80%] p-4 rounded-lg backdrop-blur-sm ${
-                        message.type === 'user'
+                      className={`max-w-[80%] p-4 rounded-lg backdrop-blur-sm ${message.type === 'user'
                           ? 'bg-blue-500/20 border border-blue-500/30'
                           : 'bg-gray-700/20 border border-gray-700/30'
-                      }`}
+                        }`}
                     >
                       <p className="text-white">{message.content}</p>
                       <p className="text-xs text-white/50 mt-1">
@@ -230,7 +265,7 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
                     </motion.div>
                   </motion.div>
                 ))}
-                {isTyping && (
+                {/* {isTyping && (
                   <motion.div
                     key="typing-indicator"
                     initial={{ opacity: 0, y: 10 }}
@@ -258,7 +293,7 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
                       </div>
                     </div>
                   </motion.div>
-                )}
+                )} */}
                 <div key="messages-end" ref={messagesEndRef} />
               </AnimatePresence>
             </div>
@@ -268,19 +303,9 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
               <div className="flex items-center justify-center space-x-4">
                 <VoiceStateIcon state={voiceState} />
                 <p className="text-center text-white/70">
-                  {isVadMode ? '自动检测语音' : '按住空格键说话'}
+                  按住空格键说话
                 </p>
               </div>
-              {transcript && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 20 }}
-                  className="bg-black/20 backdrop-blur-sm rounded-lg p-4 mt-4 border border-white/10"
-                >
-                  <p className="text-white/90">{transcript}</p>
-                </motion.div>
-              )}
             </div>
           </div>
 
