@@ -49,14 +49,27 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
                     clientRef.current.removeMessageHandler(messageHandler);
                     const resAudioData = base64ToInt16Array(data.audio);
                     
-                    // 设置为 AI 说话状态
-                    setVoiceState('aiSpeaking');
+                    // 只有在当前不是用户说话状态时，才设置为 AI 说话状态
+                    setVoiceState(currentState => {
+                        if (currentState === 'userSpeaking') {
+                            // 如果用户正在说话，暂时不播放 AI 的回复
+                            // 可以选择将音频缓存起来，等用户说完再播放
+                            return currentState;
+                        }
+                        return 'aiSpeaking';
+                    });
                     
-                    // 播放完成后设置为等待状态
+                    // 播放完成后设置为等待状态，但也要检查用户是否在说话
                     const audioLength = resAudioData.length / 16000;
                     setTimeout(() => {
-                        setVoiceState('pending');
+                        setVoiceState(currentState => {
+                            if (currentState === 'userSpeaking') {
+                                return currentState;
+                            }
+                            return 'pending';
+                        });
                     }, audioLength * 1000 + 500);
+                    
                     resolve(resAudioData);
                 }
             };
@@ -126,6 +139,7 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
       if (pendingTimerRef.current) {
         clearTimeout(pendingTimerRef.current);
       }
+      // 强制设置为用户说话状态，无论当前是什么状态
       setVoiceState('userSpeaking');
       startRecording();
     }
