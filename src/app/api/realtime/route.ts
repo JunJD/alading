@@ -51,6 +51,7 @@ export function SOCKET(
                 const transcription = await openai.audio.transcriptions.create({
                     file,
                     model: "whisper-1",
+                    language: "zh",
                 });
 
                 // 发送语音识别结果
