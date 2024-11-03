@@ -1,7 +1,7 @@
 "use client";
 import { CardBody, CardContainer, CardItem } from "../ui/TCard";
 import { IconFileText } from "@tabler/icons-react";
-import { ResumeInfo } from "./ResumeVerification";
+import { ResumeInfo } from "@/types/resume";
 
 interface ResumeCardProps {
   resumeInfo: ResumeInfo;

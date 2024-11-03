@@ -2,11 +2,11 @@
 import { useState } from "react";
 import { Modal, ModalBody, ModalContent, ModalFooter, ModalTrigger } from "../ui/Model";
 import { useResumeStore } from "@/stores/useResumeStore";
-import { ResumeData } from "@/lib/resume-parser";
+import { ResumeInfo } from "@/types/resume";
 
 interface ResumeFormProps {
-  initialData?: any;
-  onSubmit: (data: any) => void;
+  initialData?: ResumeInfo;
+  onSubmit: (data: ResumeInfo) => void;
   onEdit?: () => void;
   autoOpen?: boolean;
 }
@@ -17,7 +17,7 @@ export function ResumeForm({
   onEdit,
   autoOpen = false 
 }: ResumeFormProps) {
-  const [formData, setFormData] = useState<ResumeData>(initialData || {});
+  const [formData, setFormData] = useState<ResumeInfo>(initialData || {});
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

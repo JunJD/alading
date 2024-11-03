@@ -1,20 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Industry } from '@/types/interview';
+import { ResumeInfo } from '@/types/resume';
 
-interface ResumeState {
-  name?: string;
-  age?: number;
-  text?: string;
-  industry?: Industry;
-  pdfBase64?: string;
-  
+interface ResumeState extends ResumeInfo {
   // 状态
   isLoading: boolean;
   error?: string;
   
   // 操作
-  setResume: (resume: Partial<ResumeState>) => void;
+  setResume: (resume: Partial<ResumeInfo>) => void;
   clearResume: () => void;
   setLoading: (loading: boolean) => void;
   setError: (error?: string) => void;

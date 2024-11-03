@@ -5,7 +5,8 @@ import { Industry, InterviewType, InterviewConfig } from "@/types/interview";
 import { INDUSTRIES, INTERVIEW_TYPES } from "@/constants/interview";
 import { HoverBorderGradient } from "../ui/HoverBorderGradient";
 import { useRouter } from "next/navigation";
-import { ResumeInfo, ResumeVerification } from "./ResumeVerification";
+import { ResumeVerification } from "./ResumeVerification";
+import { ResumeInfo } from "@/types/resume";
 
 interface InterviewSetupProps {
   onBack: () => void;
@@ -33,8 +34,7 @@ export function InterviewSetup({ onBack, onComplete }: InterviewSetupProps) {
     <div className="w-full max-w-4xl mx-auto p-6">
       {step === "resume" ? (
         <ResumeVerification 
-          onComplete={(info) => {
-            setResumeInfo(info);
+          onComplete={() => {
             setStep("industry");
           }} 
         />
