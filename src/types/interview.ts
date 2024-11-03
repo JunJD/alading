@@ -1,9 +1,32 @@
-export type Industry = {
+export interface Industry {
   id: string;
   name: string;
   icon: string;
   description: string;
-};
+  interview: InterviewLogic;
+}
+
+export interface InterviewLogic {
+  systemPrompt: string;
+  openingPrompt: string;
+  openingResponse: string;
+  processRules: InterviewRule[];
+  evaluationCriteria: EvaluationCriterion[];
+}
+
+export interface InterviewRule {
+  id: string;
+  description: string;
+  condition?: string;
+  action: string;
+}
+
+export interface EvaluationCriterion {
+  id: string;
+  name: string;
+  description: string;
+  weight: number;
+}
 
 export type InterviewType = {
   id: string;
