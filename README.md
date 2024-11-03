@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI 面试助手
 
-## Getting Started
+一个基于 AI 的面试模拟系统，支持实时语音对话和多种面试场景。通过结合 OpenAI 的 GPT、Whisper 和 TTS 技术，为用户提供沉浸式的面试体验。
 
-First, run the development server:
+## 项目简介
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+AI 面试助手是一个创新的面试训练平台，它能够：
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 个性化面试体验
+- 支持多个行业（技术开发、产品经理等）
+- 提供多种面试类型（自我介绍、项目经验、薪资谈判）
+- 根据用户简历定制面试内容
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 智能交互
+- 实时语音对话，模拟真实面试场景
+- AI 面试官能够根据上下文进行追问
+- 动态调整面试难度和深度
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 结构化面试流程
+- 清晰的面试阶段划分
+- 实时进度追踪
+- 每个阶段都有明确的评估重点
 
-## Learn More
+### 技术特色
+- 实时语音转写和合成
+- WebSocket 实时通信
+- 动态粒子效果反馈
+- 响应式界面设计
 
-To learn more about Next.js, take a look at the following resources:
+## 功能特点
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- 🎙️ 实时语音交互
+- 🤖 智能 AI 面试官
+- 🎯 多种面试类型
+  - 自我介绍
+  - 项目经验
+  - 薪资谈判
+- 🏢 多行业支持
+  - 技术开发
+  - 产品经理
+- 📊 面试进度追踪
+- 🔄 实时反馈
+- 💼 简历分析
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 技术栈
 
-## Deploy on Vercel
+- **前端框架**: Next.js 13+ (App Router)
+- **样式**: Tailwind CSS
+- **状态管理**: React Hooks
+- **动画**: Framer Motion
+- **实时通信**: WebSocket
+- **语音处理**: Web Audio API
+- **AI 模型**: OpenAI GPT-3.5 + Whisper + TTS
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 系统架构
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 前端模块
+- `InterviewSetup`: 面试配置和初始化
+- `InterviewRoom`: 核心面试交互界面
+- `VoiceInput`: 语音输入处理
+- `RealtimeClient`: WebSocket 通信客户端
+
+### 后端服务
+- WebSocket 服务器
+- OpenAI 接口集成
+- 音频处理服务
+
+### 核心功能
+- 实时语音转文字
+- AI 对话生成
+- 文字转语音
+- 面试进度追踪
+
+## 本地开发
+
+1. 克隆项目
