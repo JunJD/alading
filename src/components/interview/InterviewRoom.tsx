@@ -28,6 +28,11 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isKeyDownRef = useRef(false);
 
+  const conversationStateRef = useRef<{
+    transcriptionId?: string;
+    responseId?: string;
+  }>({});
+
   const handleProcessAudio = useCallback(async (audioData: Int16Array): Promise<Int16Array> => {
     return new Promise((resolve, reject) => {
         try {
@@ -36,41 +41,58 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
                 if (data.type === 'text' && data.content) {
                     // 处理文本响应
                     if (data.author === 'Server') {
-                        setMessages(prev => [...prev, {
-                            id: Date.now().toString(),
-                            type: data.messageType === 'transcription' ? 'user' : 'ai',
-                            content: data.content || '',
-                            timestamp: new Date()
-                        }]);
+                        if (data.messageType === 'transcription') {
+                            conversationStateRef.current.transcriptionId = data.event_id;
+                            setMessages(prev => {
+                                if (prev.some(msg => msg.id === data.event_id)) return prev;
+                                return [...prev, {
+                                    id: data.event_id,
+                                    type: 'user',
+                                    content: data.content || '',
+                                    timestamp: new Date()
+                                }];
+                            });
+                        } else if (data.messageType === 'response') {
+                            conversationStateRef.current.responseId = data.event_id;
+                            setMessages(prev => {
+                                if (prev.some(msg => msg.id === data.event_id)) return prev;
+                                return [...prev, {
+                                    id: data.event_id,
+                                    type: 'ai',
+                                    content: data.content || '',
+                                    timestamp: new Date()
+                                }];
+                            });
+                        }
                     }
                 }
                 else if (data.type === 'audio' && data.audio) {
-                    // 收到服务器返回的处理后的音频
-                    clientRef.current.removeMessageHandler(messageHandler);
-                    const resAudioData = base64ToInt16Array(data.audio);
-                    
-                    // 只有在当前不是用户说话状态时，才设置为 AI 说话状态
-                    setVoiceState(currentState => {
-                        if (currentState === 'userSpeaking') {
-                            // 如果用户正在说话，暂时不播放 AI 的回复
-                            // 可以选择将音频缓存起来，等用户说完再播放
-                            return currentState;
-                        }
-                        return 'aiSpeaking';
-                    });
-                    
-                    // 播放完成后设置为等待状态，但也要检查用户是否在说话
-                    const audioLength = resAudioData.length / 16000;
-                    setTimeout(() => {
+                    // 检查这个音频是否对应当前的响应
+                    if (data.event_id === conversationStateRef.current.responseId) {
+                        clientRef.current.removeMessageHandler(messageHandler);
+                        const resAudioData = base64ToInt16Array(data.audio);
+                        
+                        // 只有在当前不是用户说话状态时，才设置为 AI 说话状态
                         setVoiceState(currentState => {
                             if (currentState === 'userSpeaking') {
                                 return currentState;
                             }
-                            return 'pending';
+                            return 'aiSpeaking';
                         });
-                    }, audioLength * 1000 + 500);
-                    
-                    resolve(resAudioData);
+                        
+                        // 播放完成后设置为等待状态，但也要检查用户是否在说话
+                        const audioLength = resAudioData.length / 16000;
+                        setTimeout(() => {
+                            setVoiceState(currentState => {
+                                if (currentState === 'userSpeaking') {
+                                    return currentState;
+                                }
+                                return 'pending';
+                            });
+                        }, audioLength * 1000 + 500);
+                        
+                        resolve(resAudioData);
+                    }
                 }
             };
 
