@@ -1,16 +1,23 @@
 "use client";
 import { useState } from "react";
-import { ResumeInfo } from "./ResumeVerification";
 import { Modal, ModalBody, ModalContent, ModalFooter, ModalTrigger } from "../ui/Model";
+import { useResumeStore } from "@/stores/useResumeStore";
+import { ResumeData } from "@/lib/resume-parser";
 
 interface ResumeFormProps {
-  initialData?: ResumeInfo;
-  onSubmit: (data: ResumeInfo) => void;
+  initialData?: any;
+  onSubmit: (data: any) => void;
   onEdit?: () => void;
+  autoOpen?: boolean;
 }
 
-export function ResumeForm({ initialData, onSubmit, onEdit }: ResumeFormProps) {
-  const [formData, setFormData] = useState<ResumeInfo>(initialData || {});
+export function ResumeForm({ 
+  initialData, 
+  onSubmit, 
+  onEdit,
+  autoOpen = false 
+}: ResumeFormProps) {
+  const [formData, setFormData] = useState<ResumeData>(initialData || {});
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,7 +26,10 @@ export function ResumeForm({ initialData, onSubmit, onEdit }: ResumeFormProps) {
 
   return (
     <Modal>
-      <ModalTrigger className="bg-blue-500 text-white hover:bg-blue-600">
+      <ModalTrigger 
+        className="bg-blue-500 text-white hover:bg-blue-600"
+        autoOpen={autoOpen}
+      >
         {initialData ? "编辑简历信息" : "确认信息"}
       </ModalTrigger>
 

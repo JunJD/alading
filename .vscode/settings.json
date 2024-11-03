@@ -9,6 +9,7 @@
         "silero",
         "tsparticles",
         "wavtools",
-        "worklets"
+        "worklets",
+        "zustand"
     ]
 }
