@@ -5,7 +5,7 @@
 ## 演示视频
 
 ### 功能演示
-![AI 面试助手演示](/public/ex.mov)
+![AI 面试助手演示](https://www.bilibili.com/video/BV1ptSSYrE6m/?vd_source=7e0ba9a1685ef2488de83e652e939ec6)
 
 > 演示视频展示了系统的核心功能和使用流程
 
