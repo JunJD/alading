@@ -3,15 +3,44 @@ export interface Industry {
   name: string;
   icon: string;
   description: string;
-  interview: InterviewLogic;
+  interview: IndustryLogic;
 }
 
-export interface InterviewLogic {
+export interface IndustryLogic {
   systemPrompt: string;
-  openingPrompt: string;
   openingResponse: string;
+  evaluationCriteria: IndustryCriterion[];
+  keyPoints: string[];
+}
+
+export interface IndustryCriterion {
+  id: string;
+  name: string;
+  description: string;
+  weight: number;
+}
+
+export interface InterviewType {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  systemPrompt: string;
+  stages: InterviewStage[];
   processRules: InterviewRule[];
-  evaluationCriteria: EvaluationCriterion[];
+}
+
+export interface InterviewStage {
+  id: string;
+  name: string;
+  description: string;
+  prompts: string[];
+  expectedDuration: number;
+  evaluationPoints: {
+    name: string;
+    weight: number;
+    criteria: string[];
+  }[];
 }
 
 export interface InterviewRule {
@@ -21,23 +50,9 @@ export interface InterviewRule {
   action: string;
 }
 
-export interface EvaluationCriterion {
-  id: string;
-  name: string;
-  description: string;
-  weight: number;
-}
-
-export type InterviewType = {
-  id: string;
-  name: string;
-  icon: string;
-  description: string;
-};
-
 export type InterviewConfig = {
-  industry?: Industry;
-  type?: InterviewType;
+  industry: Industry;
+  type: InterviewType;
   userProfile?: {
     name: string;
     experience: number;

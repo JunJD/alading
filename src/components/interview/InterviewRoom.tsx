@@ -112,7 +112,7 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
             setTimeout(() => {
                 clientRef.current.removeMessageHandler(messageHandler);
                 reject(new Error('处理音频超时'));
-            }, 30000);
+            }, 10 * 60 * 1000);
 
         } catch (error) {
             console.error('音频处理失败:', error);
@@ -229,6 +229,10 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
       url: `ws://${window.location.host}/api/realtime`,
       // onMessage: handleRealtimeMessage,
       onError: handleRealtimeError,
+      config: {
+        industry: config.industry!,
+        type: config.type!,
+      }
     })
   );
 

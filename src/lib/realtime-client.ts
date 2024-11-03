@@ -1,9 +1,14 @@
 'use client'
 import { RealTimeMessage, RealTimeResponse } from '@/types/realtime';
 import { generateId, int16ArrayToBase64 } from './utils';
+import { Industry, InterviewType } from '@/types/interview';
 
 interface RealtimeClientOptions {
     url: string;
+    config: {
+        industry: Industry;
+        type: InterviewType;
+    };
     onMessage?: (data: RealTimeResponse) => void;
     onError?: (error: WebSocket['onerror']) => void;
 }
@@ -22,7 +27,7 @@ export class RealtimeClient {
             try {
                 if (globalThis.document) {
                     const WebSocket = globalThis.WebSocket;
-                    this.ws = new WebSocket(this.options.url);
+                    this.ws = new WebSocket(`${this.options.url}?industry=${this.options.config.industry.id}&type=${this.options.config.type.id}`);
 
                     this.ws.onopen = () => {
                         console.log('WebSocket connected');

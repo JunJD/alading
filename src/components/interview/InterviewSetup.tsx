@@ -24,7 +24,7 @@ export function InterviewSetup({ onBack, onComplete }: InterviewSetupProps) {
   };
 
   const handleTypeSelect = (type: InterviewType) => {
-    const config: InterviewConfig = { industry: resumeInfo?.industry, type };
+    const config: InterviewConfig = { industry: resumeInfo?.industry!, type };
     localStorage.setItem('interviewConfig', JSON.stringify(config));
     onComplete(config);
     router.push(`/interview/${type.id}`);
