@@ -19,6 +19,8 @@ export const useVoiceInput = ({
   const localInt16Array = useRef<Int16Array>(new Int16Array(0));
   const audioHistoryRef = useRef<Int16Array[]>([]);
   const latestAudioRef = useRef<Int16Array | null>(null);
+  const requestCounterRef = useRef(0);
+  const lastProcessedRequestRef = useRef(-1);
 
   const appendAudio = useCallback((audioData: Int16Array) => {
     if (!isRecordingRef.current) {
@@ -96,23 +98,32 @@ export const useVoiceInput = ({
     }
   }, []);
 
-  const playAudio = useCallback(async (audioData: Int16Array) => {
+  const playAudio = useCallback(async (audioData: Int16Array, requestId: number) => {
     try {
-      if (isRecordingRef.current) {
-        console.log('正在录音，跳过音频播放');
+      if (isRecordingRef.current || requestId < lastProcessedRequestRef.current) {
+        console.log('跳过播放，requestId:', requestId, '当前最新:', lastProcessedRequestRef.current);
         return;
       }
 
+      lastProcessedRequestRef.current = requestId;
       latestAudioRef.current = audioData;
 
       if (isPlayingRef.current) {
         await wavStreamPlayerRef.current.interrupt();
       }
 
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       isPlayingRef.current = true;
       
       let offset = 0;
       const len = audioData.byteLength;
+      
+      const silentFrames = new Int16Array(1600); // 100ms 的空白音频
+      await wavStreamPlayerRef.current.add16BitPCM(
+        silentFrames,
+        'silent-prefix'
+      );
       
       while (offset < len && !isRecordingRef.current && latestAudioRef.current === audioData) {
         const chunk = audioData.slice(offset, offset + 16000);
@@ -148,15 +159,16 @@ export const useVoiceInput = ({
         
         if (onProcessAudio) {
           try {
+            const currentRequestId = ++requestCounterRef.current;
             const processedAudio = await onProcessAudio(currentAudio);
             
             if (!isRecordingRef.current) {
-              await playAudio(processedAudio);
-              if (!isRecordingRef.current) {
-                appendAudio(processedAudio);
+              if (currentRequestId > lastProcessedRequestRef.current || !isRecordingRef.current) {
+                await playAudio(processedAudio, currentRequestId);
+                if (!isRecordingRef.current) {
+                  appendAudio(processedAudio);
+                }
               }
-            } else {
-              latestAudioRef.current = processedAudio;
             }
           } catch (error) {
             console.error('音频处理失败:', error);
