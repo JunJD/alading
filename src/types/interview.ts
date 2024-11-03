@@ -1,3 +1,5 @@
+import { ResumeInfo } from "./resume";
+
 export interface Industry {
   id: string;
   name: string;
@@ -53,12 +55,7 @@ export interface InterviewRule {
 export type InterviewConfig = {
   industry: Industry;
   type: InterviewType;
-  userProfile?: {
-    name: string;
-    experience: number;
-    skills: string[];
-    education: string;
-  };
+  resume: ResumeInfo;
 };
 
 export type InterviewState = 'idle' | 'userSpeaking' | 'aiSpeaking' | 'processing' | 'connected' | 'pending';
@@ -69,4 +66,21 @@ export interface Message {
   role: 'ai' | 'user';
   content: string;
   timestamp: Date;
+}
+
+// 在 RealTimePayload 接口中添加进度信息
+export interface RealTimePayload {
+    type: 'audio' | 'text';
+    event_id: string;
+    author: 'Server' | 'Client';
+    content?: string;
+    messageType?: 'transcription' | 'response' | 'phase_change';
+    audio?: string;
+    history?: { role: 'user' | 'assistant'; content: string }[];
+    progress?: {
+        currentStage: number;
+        totalStages: number;
+        stageName: string;
+        progressPercent: number;
+    };
 } 

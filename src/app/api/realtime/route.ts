@@ -24,6 +24,12 @@ interface RealTimePayload {
     messageType?: 'transcription' | 'response' | 'phase_change';
     audio?: string;
     history?: { role: 'user' | 'assistant'; content: string }[];
+    progress?: {
+        currentStage: number;
+        totalStages: number;
+        stageName: string;
+        progressPercent: number;
+    };
 }
 
 export function SOCKET(
@@ -34,6 +40,8 @@ export function SOCKET(
     const url = new URL(_request.url!, `http://${_request.headers.host}`);
     const industry = url.searchParams.get('industry');
     const type = url.searchParams.get('type');
+    const resume = JSON.parse(url.searchParams.get('resume') || '{}');
+    
     const interview = getInterview(industry!);
     const interviewType = getInterviewType(type!);
     const { send, broadcast } = createHelpers(client, server);
@@ -94,6 +102,15 @@ export function SOCKET(
 
         if (currentPhase.id !== currentStage.id) {
             currentPhase = currentStage;
+            currentPhaseIndex = interviewType.stages.indexOf(currentStage);
+            
+            // 计算进度
+            const progress = {
+                currentStage: currentPhaseIndex + 1,
+                totalStages: interviewType.stages.length,
+                stageName: currentStage.name,
+                progressPercent: Math.round(((currentPhaseIndex + 1) / interviewType.stages.length) * 100)
+            };
             
             // 从当前阶段的prompts中随机选择一个作为引导语
             const prompt = currentStage.prompts[Math.floor(Math.random() * currentStage.prompts.length)];
@@ -104,6 +121,7 @@ export function SOCKET(
                 content: `现在进入${currentStage.name}环节：${prompt}`,
                 messageType: 'phase_change',
                 event_id: generateId('evt_'),
+                progress
             });
         }
 
@@ -149,6 +167,14 @@ export function SOCKET(
                         
                         ${interviewType.systemPrompt}
                         
+                        候选人简历信息：
+                        ${resume ? `
+                        基本信息：
+                        - 姓名：${resume.name || '未提供'}
+                        - 年龄：${resume.age || '未提供'}
+                        - 简历详情：${resume.text || '未提供'}
+                        ` : '未提供简历信息'}
+                        
                         当前面试环节：${currentPhase.name}
                         环节目标：${currentPhase.description}
                         
@@ -167,11 +193,16 @@ export function SOCKET(
                         
                         面试要求：
                         1. 始终以${industry}面试官的身份进行对话
-                        2. 结合行业特点和当前面试环节进行提问
+                        2. 结合候选人背景和当前面试环节进行提问
                         3. 严格遵循评估标准进行评判
                         4. 控制每次回复在100字以内
                         5. ${interviewType.processRules.find(rule => rule.description === currentPhase.name)?.action || 
                             interviewType.processRules[0].action}
+                        
+                        注意事项：
+                        1. 仔细阅读候选人的简历文本，从中提取关键信息
+                        2. 根据简历内容进行针对性提问
+                        3. 结合行业背景和面试类型设计问题
                     `
                 };
 
@@ -211,13 +242,22 @@ export function SOCKET(
 
                 const aiResponse = completion.choices[0].message.content ?? '';
 
-                // 发送文本响应
+                // 计算当前进度
+                const progress = {
+                    currentStage: currentPhaseIndex + 1,
+                    totalStages: interviewType.stages.length,
+                    stageName: currentPhase.name,
+                    progressPercent: Math.round(((currentPhaseIndex + 1) / interviewType.stages.length) * 100)
+                };
+
+                // 发送文本响应时包含进度
                 send({
                     author: 'Server',
                     type: 'text',
                     content: aiResponse,
                     messageType: 'response',
                     event_id: responseId,
+                    progress
                 });
 
                 // 3. 文本转语音
@@ -229,7 +269,7 @@ export function SOCKET(
                     speed: 2.0,
                 });
 
-                // 4. 发送音频响应，使用相同的 responseId
+                // 4. 发送音频���应，使用相同的 responseId
                 const audioBuffer = await mp3.arrayBuffer();
                 const base64Audio = int16ArrayToBase64(new Int16Array(audioBuffer));
 

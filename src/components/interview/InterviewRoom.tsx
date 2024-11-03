@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect, useCallback, useRef } from "react"
-import { InterviewState } from "@/types/interview"
+import { InterviewState, RealTimePayload } from "@/types/interview"
 import { VoiceStateIcon } from "../ui/VoiceStateIcon"
 import { InterviewConfig } from "@/types/interview"
 import { ParticleCanvas } from "../ui/ParticleCanvas"
@@ -8,8 +8,9 @@ import { useVoiceInput } from "@/hooks/useVoiceInput"
 import { AnimatePresence, motion } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { RealtimeClient } from '@/lib/realtime-client';
-import { RealTimeResponse } from '@/types/realtime';
+import { RealTimeResponse, RealTimeError } from '@/types/realtime';
 import { base64ToInt16Array } from "@/lib/utils"
+
 
 interface Message {
   id: string;
@@ -18,11 +19,25 @@ interface Message {
   timestamp: Date;
 }
 
-export function InterviewRoom({ config }: { config: InterviewConfig }) {
+interface InterviewRoomProps {
+  config: InterviewConfig;
+}
+
+export function InterviewRoom({ config }: InterviewRoomProps) {
   const router = useRouter()
   const [voiceState, setVoiceState] = useState<InterviewState>('idle')
   const [messages, setMessages] = useState<Message[]>([])
-
+  const [progress, setProgress] = useState<{
+    currentStage: number;
+    totalStages: number;
+    stageName: string;
+    progressPercent: number;
+  }>({
+    currentStage: 1,
+    totalStages: config.type.stages.length,
+    stageName: config.type.stages[0].name,
+    progressPercent: 0
+  });
 
   const pendingTimerRef = useRef<NodeJS.Timeout>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -35,91 +50,91 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
 
   const handleProcessAudio = useCallback(async (audioData: Int16Array): Promise<Int16Array> => {
     return new Promise((resolve, reject) => {
-        try {
-            // 创建一个一次性的消息处理器
-            const messageHandler = (data: RealTimeResponse) => {
-                if (data.type === 'text' && data.content) {
-                    // 处理文本响应
-                    if (data.author === 'Server') {
-                        if (data.messageType === 'transcription') {
-                            conversationStateRef.current.transcriptionId = data.event_id;
-                            setMessages(prev => {
-                                if (prev.some(msg => msg.id === data.event_id)) return prev;
-                                return [...prev, {
-                                    id: data.event_id,
-                                    type: 'user',
-                                    content: data.content || '',
-                                    timestamp: new Date()
-                                }];
-                            });
-                        } else if (data.messageType === 'response') {
-                            conversationStateRef.current.responseId = data.event_id;
-                            setMessages(prev => {
-                                if (prev.some(msg => msg.id === data.event_id)) return prev;
-                                return [...prev, {
-                                    id: data.event_id,
-                                    type: 'ai',
-                                    content: data.content || '',
-                                    timestamp: new Date()
-                                }];
-                            });
-                        }
-                    }
+      try {
+        // 创建一个一次性的消息处理器
+        const messageHandler = (data: RealTimeResponse) => {
+          if (data.type === 'text' && data.content) {
+            // 处理文本响应
+            if (data.author === 'Server') {
+              if (data.messageType === 'transcription') {
+                conversationStateRef.current.transcriptionId = data.event_id;
+                setMessages(prev => {
+                  if (prev.some(msg => msg.id === data.event_id)) return prev;
+                  return [...prev, {
+                    id: data.event_id,
+                    type: 'user',
+                    content: data.content || '',
+                    timestamp: new Date()
+                  }];
+                });
+              } else if (data.messageType === 'response') {
+                conversationStateRef.current.responseId = data.event_id;
+                setMessages(prev => {
+                  if (prev.some(msg => msg.id === data.event_id)) return prev;
+                  return [...prev, {
+                    id: data.event_id,
+                    type: 'ai',
+                    content: data.content || '',
+                    timestamp: new Date()
+                  }];
+                });
+              }
+            }
+          }
+          else if (data.type === 'audio' && data.audio) {
+            // 检查这个音频是否对应当前的响应
+            if (data.event_id === conversationStateRef.current.responseId) {
+              clientRef.current.removeMessageHandler(messageHandler);
+              const resAudioData = base64ToInt16Array(data.audio);
+
+              // 只有在当前不是用户说话状态时，才设置为 AI 说话状态
+              setVoiceState(currentState => {
+                if (currentState === 'userSpeaking') {
+                  return currentState;
                 }
-                else if (data.type === 'audio' && data.audio) {
-                    // 检查这个音频是否对应当前的响应
-                    if (data.event_id === conversationStateRef.current.responseId) {
-                        clientRef.current.removeMessageHandler(messageHandler);
-                        const resAudioData = base64ToInt16Array(data.audio);
-                        
-                        // 只有在当前不是用户说话状态时，才设置为 AI 说话状态
-                        setVoiceState(currentState => {
-                            if (currentState === 'userSpeaking') {
-                                return currentState;
-                            }
-                            return 'aiSpeaking';
-                        });
-                        
-                        // 播放完成后设置为等待状态，但也要检查用户是否在说话
-                        const audioLength = resAudioData.length / 16000;
-                        setTimeout(() => {
-                            setVoiceState(currentState => {
-                                if (currentState === 'userSpeaking') {
-                                    return currentState;
-                                }
-                                return 'pending';
-                            });
-                        }, audioLength * 1000 + 500);
-                        
-                        resolve(resAudioData);
-                    }
-                }
-            };
+                return 'aiSpeaking';
+              });
 
-            // 添加临时消息处理器
-            clientRef.current.addMessageHandler(messageHandler);
-            
-            // 转换消息历史格式并发送
-            const history = messages.map(msg => ({
-                role: msg.type === 'user' ? 'user' as const : 'assistant' as const,
-                content: msg.content
-            }));
-            
-            // 发送音频数据和历史记录到服务器
-            clientRef.current.sendAudio(audioData, history);
+              // 播放完成后设置为等待状态，但也要检查用户是否在说话
+              const audioLength = resAudioData.length / 16000;
+              setTimeout(() => {
+                setVoiceState(currentState => {
+                  if (currentState === 'userSpeaking') {
+                    return currentState;
+                  }
+                  return 'pending';
+                });
+              }, audioLength * 1000 + 500);
 
-            // 设置超时
-            setTimeout(() => {
-                clientRef.current.removeMessageHandler(messageHandler);
-                reject(new Error('处理音频超时'));
-            }, 10 * 60 * 1000);
+              resolve(resAudioData);
+            }
+          }
+        };
 
-        } catch (error) {
-            console.error('音频处理失败:', error);
-            reject(error);
-        }
+        // 添加临时消息处理器
+        clientRef.current.addMessageHandler(messageHandler);
+
+        // 转换消息历史格式并发送
+        const history = messages.map(msg => ({
+          role: msg.type === 'user' ? 'user' as const : 'assistant' as const,
+          content: msg.content
+        }));
+
+        // 发送音频数据和历史记录到服务器
+        clientRef.current.sendAudio(audioData, history);
+
+        // 设置超时
+        setTimeout(() => {
+          clientRef.current.removeMessageHandler(messageHandler);
+          reject(new Error('处理音频超时'));
+        }, 10 * 60 * 1000);
+
+      } catch (error) {
+        console.error('音频处理失败:', error);
+        reject(error);
+      }
     });
-}, [messages]);
+  }, [messages]);
 
   const {
     isRecording,
@@ -203,21 +218,18 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
-  // const handleRealtimeMessage = useCallback((data: RealTimeResponse) => {
-  //   console.log('handleRealtimeMessage 收到服务器消息:', data);
-  //   if (data.type === 'response' && 'text' in data && 'audio' in data) {
-  //     setMessages(prev => [...prev, {
-  //       id: Date.now().toString(),
-  //       type: 'ai',
-  //       content: data.text || '',
-  //       timestamp: new Date()
-  //     }]);
 
-  //     if (data.audio) {
-  //       playAudio(base64ToInt16Array(data.audio));
-  //     }
-  //   }
-  // }, [playAudio]);
+  // 在处理 WebSocket 消息时更新进度
+  const handleRealtimeMessage = (message: RealTimeResponse | RealTimeError) => {
+    if (message.type === 'error') {
+      console.error('Realtime error:', message.message);
+      return;
+    }
+
+    if (message.progress) {
+      setProgress(message.progress);
+    }
+  };
 
   const handleRealtimeError = useCallback((error: WebSocket['onerror']) => {
     console.error('Realtime error:', error);
@@ -227,11 +239,16 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
   const clientRef = useRef<RealtimeClient>(
     new RealtimeClient({
       url: `ws://${window.location.host}/api/realtime`,
-      // onMessage: handleRealtimeMessage,
+      onMessage: handleRealtimeMessage,
       onError: handleRealtimeError,
       config: {
         industry: config.industry!,
         type: config.type!,
+        resume: {
+          name: config.resume.name,
+          age: config.resume.age,
+          text: config.resume.text,
+        }
       }
     })
   );
@@ -300,8 +317,8 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
                       initial={{ scale: 0.9 }}
                       animate={{ scale: 1 }}
                       className={`max-w-[80%] p-4 rounded-lg backdrop-blur-sm ${message.type === 'user'
-                          ? 'bg-blue-500/20 border border-blue-500/30'
-                          : 'bg-gray-700/20 border border-gray-700/30'
+                        ? 'bg-blue-500/20 border border-blue-500/30'
+                        : 'bg-gray-700/20 border border-gray-700/30'
                         }`}
                     >
                       <p className="text-white">{message.content}</p>
@@ -357,7 +374,17 @@ export function InterviewRoom({ config }: { config: InterviewConfig }) {
 
           {/* 进度指示器 */}
           <div className="text-center mt-4 flex-shrink-0">
-            <p className="text-white/70">面试进度: 1/5</p>
+            <div className="flex items-center space-x-4">
+              <p className="text-white/70">
+                面试进度: {progress.currentStage}/{progress.totalStages} - {progress.stageName}
+              </p>
+              <div className="w-48 bg-white/10 rounded-full h-2">
+                <div
+                  className="bg-primary h-full rounded-full transition-all duration-300"
+                  style={{ width: `${progress.progressPercent}%` }}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
