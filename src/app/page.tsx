@@ -105,35 +105,11 @@ export default function AIInterviewSimulator() {
             </div>
           </motion.div>
         </div>
-      ) : currentView === "setup" ? (
+      ) :  (
         <InterviewSetup
           onComplete={handleSetupComplete}
           onBack={() => setCurrentView("home")}
         />
-      ) : currentView === "interview" ? (
-        <InterviewSimulator
-          config={interviewConfig}
-          onComplete={completeInterview}
-        />
-      ) : (
-        <div className="flex flex-col items-center justify-center min-h-screen p-4">
-          <SparklesCore
-            id="tsparticles"
-            background="transparent"
-            minSize={0.6}
-            maxSize={1.4}
-            particleDensity={100}
-            className="w-full h-full absolute"
-            particleColor="#FFFFFF"
-          />
-          <h2 className="text-3xl font-bold mb-4 text-gray-800 dark:text-white z-10">恭喜你完成模拟面试！</h2>
-          <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl text-center mb-8 z-10">
-            你的表现很棒！我们希望这次模拟面试能帮助你更好地准备未来的真实面试。
-          </p>
-          <HoverBorderGradient onClick={() => setCurrentView("home")} className="text-lg font-semibold z-10">
-            返回首页
-          </HoverBorderGradient>
-        </div>
       )}
     </BackgroundBeamsWithCollision>
   );
