@@ -4,6 +4,6 @@ export interface ResumeInfo {
   name?: string;
   age?: number;
   text?: string;
-  industry?: Industry;
+  industry?: Industry | null;
   pdfBase64?: string;
 } 

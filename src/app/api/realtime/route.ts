@@ -1,6 +1,8 @@
 import OpenAI from 'openai';
 import { generateId, base64ToInt16Array, int16ArrayToWavBuffer, int16ArrayToBase64 } from '@/lib/utils';
-import { getInterview, getInterviewType } from '@/constants/interview';
+import { getInterview } from '@/constants/interview';
+import { getInterviewType } from '@/constants/interviewTypes';
+import { InterviewProgress } from '@/types/realtime';
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -21,7 +23,7 @@ interface RealTimePayload {
     event_id: string;
     author: 'Server' | 'Client';
     content?: string;
-    messageType?: 'transcription' | 'response' | 'phase_change';
+    messageType?: 'transcription' | 'response' | 'phase_change' | 'begin';
     audio?: string;
     history?: { role: 'user' | 'assistant'; content: string }[];
     progress?: {
@@ -56,40 +58,30 @@ export function SOCKET(
         return;
     }
 
-    const openingResponseId = generateId('evt_');
-
-    // 发送开场白
-    send({
-        author: 'Server',
-        type: 'text',
-        content: interview.openingResponse,
-        messageType: 'response',
-        event_id: openingResponseId,
-    });
-
-    // 发送开场语音
-    openai.audio.speech.create({
-        model: "tts-1",
-        voice: "fable",
-        input: interview.openingResponse,
-        response_format: "pcm",
-        speed: 2.0,
-    }).then(async (mp3) => {
-        const audioBuffer = await mp3.arrayBuffer();
-        const base64Audio = int16ArrayToBase64(new Int16Array(audioBuffer));
-
-        send({
-            author: 'Server',
-            type: 'audio',
-            content: interview.openingResponse,
-            audio: base64Audio,
-            event_id: openingResponseId, // 使用相同的 responseId
-        });
-    }).catch(console.error);
-
     // 初始化为第一个阶段
     let currentPhaseIndex = 0;
     let currentPhase = interviewType.stages[0];
+
+    // 使用辅助函数创建初始进度信息
+    const initialProgress = createProgressInfo(
+        currentPhaseIndex,
+        interviewType.stages.length,
+        currentPhase.name
+    );
+
+    // 构建开场消息
+    const openingMessage = `${interview.openingResponse}\n\n${currentPhase.prompts[0]}`;
+    const openingResponseId = generateId('evt_');
+
+    // 发送开场白和初始进度
+    send({
+        author: 'Server',
+        type: 'text',
+        content: openingMessage,
+        messageType: 'begin',
+        event_id: openingResponseId,
+        progress: initialProgress
+    });
 
     const determinePhase = (history: { role: string; content: string }[]) => {
         const messageCount = history.length;
@@ -104,15 +96,12 @@ export function SOCKET(
             currentPhase = currentStage;
             currentPhaseIndex = interviewType.stages.indexOf(currentStage);
             
-            // 计算进度
-            const progress = {
-                currentStage: currentPhaseIndex + 1,
-                totalStages: interviewType.stages.length,
-                stageName: currentStage.name,
-                progressPercent: Math.round(((currentPhaseIndex + 1) / interviewType.stages.length) * 100)
-            };
+            const progress = createProgressInfo(
+                currentPhaseIndex,
+                interviewType.stages.length,
+                currentStage.name
+            );
             
-            // 从当前阶段的prompts中随机选择一个作为引导语
             const prompt = currentStage.prompts[Math.floor(Math.random() * currentStage.prompts.length)];
             
             send({
@@ -132,6 +121,44 @@ export function SOCKET(
     client.on('message', async (message: Buffer) => {
         try {
             const payload = JSON.parse(message.toString()) as RealTimePayload;
+
+            // 处理开始消息
+            if (payload.type === 'text' && payload.messageType === 'begin') {
+                // 发送开场白和初始进度
+                const openingMessage = `${interview.openingResponse}\n\n${currentPhase.prompts[0]}`;
+                const openingResponseId = generateId('evt_');
+
+                send({
+                    author: 'Server',
+                    type: 'text',
+                    content: openingMessage,
+                    messageType: 'response',
+                    event_id: openingResponseId,
+                    progress: initialProgress
+                });
+
+                // 发送开场语音
+                const mp3 = await openai.audio.speech.create({
+                    model: "tts-1",
+                    voice: "fable",
+                    input: openingMessage,
+                    response_format: "pcm",
+                    speed: 2.0,
+                });
+
+                const audioBuffer = await mp3.arrayBuffer();
+                const base64Audio = int16ArrayToBase64(new Int16Array(audioBuffer));
+                
+                send({
+                    author: 'Server',
+                    type: 'audio',
+                    content: openingMessage,
+                    audio: base64Audio,
+                    event_id: openingResponseId,
+                    progress: initialProgress
+                });
+                return;
+            }
 
             if (payload.type === 'audio' && payload.audio) {
                 // 生成本次会话的消息 ID
@@ -242,15 +269,13 @@ export function SOCKET(
 
                 const aiResponse = completion.choices[0].message.content ?? '';
 
-                // 计算当前进度
-                const progress = {
-                    currentStage: currentPhaseIndex + 1,
-                    totalStages: interviewType.stages.length,
-                    stageName: currentPhase.name,
-                    progressPercent: Math.round(((currentPhaseIndex + 1) / interviewType.stages.length) * 100)
-                };
+                const progress = createProgressInfo(
+                    currentPhaseIndex,
+                    interviewType.stages.length,
+                    currentPhase.name
+                );
 
-                // 发送文本响应时包含进度
+                // 发送文本响应
                 send({
                     author: 'Server',
                     type: 'text',
@@ -260,26 +285,9 @@ export function SOCKET(
                     progress
                 });
 
-                // 3. 文本转语音
-                const mp3 = await openai.audio.speech.create({
-                    model: "tts-1",
-                    voice: "fable",
-                    input: aiResponse,
-                    response_format: "pcm",
-                    speed: 2.0,
-                });
-
-                // 4. 发送音频���应，使用相同的 responseId
-                const audioBuffer = await mp3.arrayBuffer();
-                const base64Audio = int16ArrayToBase64(new Int16Array(audioBuffer));
-
-                send({
-                    author: 'Server',
-                    type: 'audio',
-                    content: aiResponse,
-                    audio: base64Audio,
-                    event_id: responseId, // 使用相同的 responseId
-                });
+                // 使用辅助函数创建并发送音频消息
+                const audioMessage = await createAudioMessage(aiResponse, responseId, progress);
+                send(audioMessage);
             }
         } catch (error) {
             console.error('Error processing message:', error);
@@ -319,4 +327,34 @@ function createHelpers(
     };
 
     return { send, broadcast };
-} 
+}
+
+// 添加辅助函数
+const createProgressInfo = (currentPhaseIndex: number, totalStages: number, stageName: string) => ({
+    currentStage: currentPhaseIndex + 1,
+    totalStages,
+    stageName,
+    progressPercent: Math.round(((currentPhaseIndex + 1) / totalStages) * 100)
+});
+
+const createAudioMessage = async (text: string, eventId: string, progress?: InterviewProgress) => {
+    const mp3 = await openai.audio.speech.create({
+        model: "tts-1",
+        voice: "fable",
+        input: text,
+        response_format: "pcm",
+        speed: 2.0,
+    });
+
+    const audioBuffer = await mp3.arrayBuffer();
+    const base64Audio = int16ArrayToBase64(new Int16Array(audioBuffer));
+    
+    return {
+        author: 'Server' as const,
+        type: 'audio' as const,
+        content: text,
+        audio: base64Audio,
+        event_id: eventId,
+        progress
+    };
+}; 

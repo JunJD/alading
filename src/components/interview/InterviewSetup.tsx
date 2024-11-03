@@ -2,11 +2,12 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Industry, InterviewType, InterviewConfig } from "@/types/interview";
-import { INDUSTRIES, INTERVIEW_TYPES } from "@/constants/interview";
+import { INDUSTRIES } from "@/constants/interview";
 import { HoverBorderGradient } from "../ui/HoverBorderGradient";
 import { useRouter } from "next/navigation";
 import { ResumeVerification } from "./ResumeVerification";
 import { ResumeInfo } from "@/types/resume";
+import { INTERVIEW_TYPES } from "@/constants/interviewTypes";
 
 interface InterviewSetupProps {
   onBack: () => void;
@@ -24,7 +25,7 @@ export function InterviewSetup({ onBack, onComplete }: InterviewSetupProps) {
   };
 
   const handleTypeSelect = (type: InterviewType) => {
-    const config: InterviewConfig = { industry: resumeInfo?.industry!, type };
+    const config: InterviewConfig = { industry: resumeInfo?.industry ?? null, type, resume: resumeInfo ?? null };
     localStorage.setItem('interviewConfig', JSON.stringify(config));
     onComplete(config);
     router.push(`/interview/${type.id}`);

@@ -24,6 +24,17 @@ export class RealtimeClient {
         this.options = options;
     }
 
+    async begin() {
+        console.log('begin');
+        const payload: RealTimeRequest = {
+            type: 'text',
+            event_id: generateId('evt_'),
+            author: 'Client',
+            messageType: 'begin'
+        };
+        this.ws?.send(JSON.stringify(payload));
+    }
+
     async connect() {
         return new Promise<void>((resolve, reject) => {
             try {
@@ -37,6 +48,7 @@ export class RealtimeClient {
 
                     this.ws.onopen = () => {
                         console.log('WebSocket connected');
+                        this.begin().catch(console.error);
                         resolve();
                         this.ws?.send(JSON.stringify({
                             type: 'ping',

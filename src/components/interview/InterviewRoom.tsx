@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect, useCallback, useRef } from "react"
-import { InterviewState, RealTimePayload } from "@/types/interview"
+import { InterviewState } from "@/types/interview"
 import { VoiceStateIcon } from "../ui/VoiceStateIcon"
 import { InterviewConfig } from "@/types/interview"
 import { ParticleCanvas } from "../ui/ParticleCanvas"
@@ -8,7 +8,7 @@ import { useVoiceInput } from "@/hooks/useVoiceInput"
 import { AnimatePresence, motion } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { RealtimeClient } from '@/lib/realtime-client';
-import { RealTimeResponse, RealTimeError } from '@/types/realtime';
+import { RealTimeResponse, RealTimeError, InterviewProgress } from '@/types/realtime';
 import { base64ToInt16Array } from "@/lib/utils"
 
 
@@ -27,12 +27,7 @@ export function InterviewRoom({ config }: InterviewRoomProps) {
   const router = useRouter()
   const [voiceState, setVoiceState] = useState<InterviewState>('idle')
   const [messages, setMessages] = useState<Message[]>([])
-  const [progress, setProgress] = useState<{
-    currentStage: number;
-    totalStages: number;
-    stageName: string;
-    progressPercent: number;
-  }>({
+  const [progress, setProgress] = useState<InterviewProgress>({
     currentStage: 1,
     totalStages: config.type.stages.length,
     stageName: config.type.stages[0].name,
@@ -143,6 +138,7 @@ export function InterviewRoom({ config }: InterviewRoomProps) {
     connectConversation,
     disconnectConversation,
     isConnected,
+    // playAudio,
   } = useVoiceInput({
     onProcessAudio: handleProcessAudio,
   });
@@ -229,6 +225,23 @@ export function InterviewRoom({ config }: InterviewRoomProps) {
     if (message.progress) {
       setProgress(message.progress);
     }
+
+    if (message.type === 'text' && message.messageType === 'begin') {
+      console.log('begin');
+      const data = message;
+      if (data.messageType === 'begin' && data.content) {
+
+        setMessages(prev => {
+          if (prev.some(msg => msg.id === data.event_id)) return prev;
+          return [...prev, {
+            id: data.event_id,
+            type: 'ai',
+            content: data.content || '',
+            timestamp: new Date()
+          }];
+        });
+      }
+    }
   };
 
   const handleRealtimeError = useCallback((error: WebSocket['onerror']) => {
@@ -237,98 +250,98 @@ export function InterviewRoom({ config }: InterviewRoomProps) {
   }, []);
 
   const clientRef = useRef<RealtimeClient>(
-    new RealtimeClient({
-      url: `ws://${window.location.host}/api/realtime`,
-      onMessage: handleRealtimeMessage,
-      onError: handleRealtimeError,
-      config: {
-        industry: config.industry!,
-        type: config.type!,
-        resume: {
-          name: config.resume.name,
-          age: config.resume.age,
-          text: config.resume.text,
+      new RealtimeClient({
+        url: `ws://${window.location.host}/api/realtime`,
+        onMessage: handleRealtimeMessage,
+        onError: handleRealtimeError,
+        config: {
+          industry: config.industry!,
+          type: config.type!,
+          resume: {
+            name: config.resume!.name,
+            age: config.resume!.age,
+            text: config.resume!.text,
+          }
         }
+      })
+    );
+
+    useEffect(() => {
+      if (isMounted.current) {
+        clientRef.current.connect();
       }
-    })
-  );
+    }, []);
 
-  useEffect(() => {
-    if (isMounted.current) {
-      clientRef.current.connect();
-    }
-  }, []);
+    return (
+      <div className="relative min-h-screen flex">
+        {/* Canvas 背景 - 使用 flex-1 自适应宽度 */}
+        <div className="relative flex-1 min-w-[500px]">
+          <ParticleCanvas
+            voiceState={voiceState}
+            className="!absolute !w-full !h-full !inset-0"
+          />
+        </div>
 
-  return (
-    <div className="relative min-h-screen flex">
-      {/* Canvas 背景 - 使用 flex-1 自适应宽度 */}
-      <div className="relative flex-1 min-w-[500px]">
-        <ParticleCanvas
-          voiceState={voiceState}
-          className="!absolute !w-full !h-full !inset-0"
-        />
-      </div>
-
-      {/* 主内容区域 - 固定宽度，限制最大高度 */}
-      <div className="w-[600px] h-screen bg-black/20 backdrop-blur-md flex flex-col overflow-hidden">
-        <div className="p-6 flex flex-col h-full">
-          {/* 标题栏 */}
-          <div className="flex justify-between items-center mb-4 flex-shrink-0">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.push('/')}
-                className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/10"
-              >
-                <svg
-                  className="w-5 h-5 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+        {/* 主内容区域 - 固定宽度，限制最大高度 */}
+        <div className="w-[600px] h-screen bg-black/20 backdrop-blur-md flex flex-col overflow-hidden">
+          <div className="p-6 flex flex-col h-full">
+            {/* 标题栏 */}
+            <div className="flex justify-between items-center mb-4 flex-shrink-0">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => router.push('/')}
+                  className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/10"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
-                </svg>
-              </button>
-              <h1 className="text-2xl font-bold text-white">
-                {config.industry?.name} - {config.type?.name}
-              </h1>
-            </div>
-          </div>
-
-          {/* 对话展示区域 - 使用 flex-1 自动占据剩余空间 */}
-          <div className="flex-1 bg-black/10 backdrop-blur-md rounded-lg border border-white/10 p-6 flex flex-col overflow-hidden">
-            {/* 消息列表区域 - 添加自定义滚动条样式 */}
-            <div className="flex-1 overflow-y-auto pr-2 space-y-4 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent hover:scrollbar-thumb-white/40">
-              <AnimatePresence mode="popLayout">
-                {messages.map((message) => (
-                  <motion.div
-                    key={`message-${message.id}`}
-                    initial={{ opacity: 0, x: message.type === 'user' ? 20 : -20, y: 10 }}
-                    animate={{ opacity: 1, x: 0, y: 0 }}
-                    exit={{ opacity: 0, x: message.type === 'user' ? 20 : -20 }}
-                    transition={{ type: "spring", stiffness: 200, damping: 20 }}
-                    className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                  <svg
+                    className="w-5 h-5 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                    />
+                  </svg>
+                </button>
+                <h1 className="text-2xl font-bold text-white">
+                  {config.industry?.name} - {config.type?.name}
+                </h1>
+              </div>
+            </div>
+
+            {/* 对话展示区域 - 使用 flex-1 自动占据剩余空间 */}
+            <div className="flex-1 bg-black/10 backdrop-blur-md rounded-lg border border-white/10 p-6 flex flex-col overflow-hidden">
+              {/* 消息列表区域 - 添加自定义滚动条样式 */}
+              <div className="flex-1 overflow-y-auto pr-2 space-y-4 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent hover:scrollbar-thumb-white/40">
+                <AnimatePresence mode="popLayout">
+                  {messages.map((message) => (
                     <motion.div
-                      initial={{ scale: 0.9 }}
-                      animate={{ scale: 1 }}
-                      className={`max-w-[80%] p-4 rounded-lg backdrop-blur-sm ${message.type === 'user'
-                        ? 'bg-blue-500/20 border border-blue-500/30'
-                        : 'bg-gray-700/20 border border-gray-700/30'
-                        }`}
+                      key={`message-${message.id}`}
+                      initial={{ opacity: 0, x: message.type === 'user' ? 20 : -20, y: 10 }}
+                      animate={{ opacity: 1, x: 0, y: 0 }}
+                      exit={{ opacity: 0, x: message.type === 'user' ? 20 : -20 }}
+                      transition={{ type: "spring", stiffness: 200, damping: 20 }}
+                      className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      <p className="text-white">{message.content}</p>
-                      <p className="text-xs text-white/50 mt-1">
-                        {message.timestamp.toLocaleTimeString()}
-                      </p>
+                      <motion.div
+                        initial={{ scale: 0.9 }}
+                        animate={{ scale: 1 }}
+                        className={`max-w-[80%] p-4 rounded-lg backdrop-blur-sm ${message.type === 'user'
+                          ? 'bg-blue-500/20 border border-blue-500/30'
+                          : 'bg-gray-700/20 border border-gray-700/30'
+                          }`}
+                      >
+                        <p className="text-white">{message.content}</p>
+                        <p className="text-xs text-white/50 mt-1">
+                          {message.timestamp.toLocaleTimeString()}
+                        </p>
+                      </motion.div>
                     </motion.div>
-                  </motion.div>
-                ))}
-                {/* {isTyping && (
+                  ))}
+                  {/* {isTyping && (
                   <motion.div
                     key="typing-indicator"
                     initial={{ opacity: 0, y: 10 }}
@@ -357,37 +370,37 @@ export function InterviewRoom({ config }: InterviewRoomProps) {
                     </div>
                   </motion.div>
                 )} */}
-                <div key="messages-end" ref={messagesEndRef} />
-              </AnimatePresence>
-            </div>
+                  <div key="messages-end" ref={messagesEndRef} />
+                </AnimatePresence>
+              </div>
 
-            {/* 语音状态和输入区域 */}
-            <div className="border-t border-white/10 pt-4 mt-4 flex-shrink-0">
-              <div className="flex items-center justify-center space-x-4">
-                <VoiceStateIcon state={voiceState} />
-                <p className="text-center text-white/70">
-                  按住空格键说话
-                </p>
+              {/* 语音状态和输入区域 */}
+              <div className="border-t border-white/10 pt-4 mt-4 flex-shrink-0">
+                <div className="flex items-center justify-center space-x-4">
+                  <VoiceStateIcon state={voiceState} />
+                  <p className="text-center text-white/70">
+                    按住空格键说话
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* 进度指示器 */}
-          <div className="text-center mt-4 flex-shrink-0">
-            <div className="flex items-center space-x-4">
-              <p className="text-white/70">
-                面试进度: {progress.currentStage}/{progress.totalStages} - {progress.stageName}
-              </p>
-              <div className="w-48 bg-white/10 rounded-full h-2">
-                <div
-                  className="bg-primary h-full rounded-full transition-all duration-300"
-                  style={{ width: `${progress.progressPercent}%` }}
-                />
+            {/* 进度指示器 */}
+            <div className="text-center mt-4 flex-shrink-0">
+              <div className="flex items-center space-x-4">
+                <p className="text-white/70">
+                  面试进度: {progress.currentStage}/{progress.totalStages} - {progress.stageName}
+                </p>
+                <div className="w-48 bg-white/10 rounded-full h-2">
+                  <div
+                    className="bg-primary h-full rounded-full transition-all duration-300"
+                    style={{ width: `${progress.progressPercent}%` }}
+                  />
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-} 
+    );
+  } 

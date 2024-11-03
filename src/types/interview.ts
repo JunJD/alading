@@ -53,9 +53,9 @@ export interface InterviewRule {
 }
 
 export type InterviewConfig = {
-  industry: Industry;
+  industry: Industry | null;
   type: InterviewType;
-  resume: ResumeInfo;
+  resume: ResumeInfo | null;
 };
 
 export type InterviewState = 'idle' | 'userSpeaking' | 'aiSpeaking' | 'processing' | 'connected' | 'pending';
