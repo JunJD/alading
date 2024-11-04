@@ -12,13 +12,13 @@ export default function InterviewPage() {
   useEffect(() => {
     // 从 localStorage 获取面试配置
     const savedConfig = localStorage.getItem('interviewConfig')
-    console.log(resume, 'resume')
     if (savedConfig) {
       setConfig({
         ...JSON.parse(savedConfig),
         resume: resume
       })
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   if (!config) return null

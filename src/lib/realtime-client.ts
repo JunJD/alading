@@ -3,6 +3,8 @@ import { RealTimeRequest, RealTimeResponse } from '@/types/realtime';
 import { generateId, int16ArrayToBase64 } from './utils';
 import { Industry, InterviewType } from '@/types/interview';
 import { ResumeInfo } from '@/types/resume';
+import { useConfigStore } from '@/stores/config'
+import { OpenAIConfig } from '@/types/config';
 
 interface RealtimeClientOptions {
     url: string;
@@ -18,10 +20,13 @@ interface RealtimeClientOptions {
 export class RealtimeClient {
     private ws: WebSocket | null = null;
     private options: RealtimeClientOptions;
+    private aiConfig: OpenAIConfig;
     private messageHandlers: Set<(data: RealTimeResponse) => void> = new Set();
 
     constructor(options: RealtimeClientOptions) {
         this.options = options;
+        const { config } = useConfigStore.getState()
+        this.aiConfig = config!
     }
 
     async begin() {
@@ -41,9 +46,9 @@ export class RealtimeClient {
                 if (globalThis.document) {
                     const resumeParam = this.options.config.resume ? 
                         `&resume=${encodeURIComponent(JSON.stringify(this.options.config.resume))}` : '&resume={}';
-                        
+                    const { model, baseUrl, apiKey } = this.aiConfig
                     this.ws = new WebSocket(
-                        `${this.options.url}?industry=${this.options.config.industry.id}&type=${this.options.config.type.id}${resumeParam}`
+                        `${this.options.url}?model=${model}&baseUrl=${baseUrl}&apiKey=${apiKey}&industry=${this.options.config.industry.id}&type=${this.options.config.type.id}${resumeParam}`
                     );
 
                     this.ws.onopen = () => {

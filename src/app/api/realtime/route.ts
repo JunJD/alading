@@ -6,7 +6,7 @@ import { InterviewProgress } from '@/types/realtime';
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
-    baseURL: process.env.OPENAI_API_URL,
+    baseURL: process.env.OPENAI_API_URL || 'https://api.openai.com/v1',
 });
 
 console.log('openai.baseURL', openai.baseURL, openai.apiKey);
@@ -43,10 +43,20 @@ export function SOCKET(
     const industry = url.searchParams.get('industry');
     const type = url.searchParams.get('type');
     const resume = JSON.parse(url.searchParams.get('resume') || '{}');
-    
+    const model = url.searchParams.get('model') || 'gpt-3.5-turbo';
     const interview = getInterview(industry!);
     const interviewType = getInterviewType(type!);
     const { send, broadcast } = createHelpers(client, server);
+
+    // 获取配置参数
+    const apiKey = url.searchParams.get('apiKey');
+    const baseUrl = url.searchParams.get('baseUrl');
+
+    // 创建 OpenAI 实例时使用配置
+    const openai = new OpenAI({
+        apiKey: apiKey || process.env.OPENAI_API_KEY,
+        baseURL: baseUrl || process.env.OPENAI_API_URL || 'https://api.openai.com/v1',
+    });
 
     if (!interview || !interviewType) {
         send({
@@ -243,7 +253,7 @@ export function SOCKET(
                 if (payload.history) {
                     const stage = determinePhase(payload.history);
                     
-                    // 如果是新阶段的第一条消息，添加引导性提示
+                    // 如果是新阶段的第一条消息，添加引导���提示
                     if (stage.id !== currentPhase.id) {
                         const processRule = interviewType.processRules.find(
                             rule => rule.description === stage.name
@@ -259,7 +269,7 @@ export function SOCKET(
                 }
 
                 const completion = await openai.chat.completions.create({
-                    model: "gpt-3.5-turbo",
+                    model: model || 'gpt-3.5-turbo',
                     messages,
                     temperature: currentPhase.id === "detail" || currentPhase.id === "technical" ? 0.8 : 0.7,
                     max_tokens: 300,

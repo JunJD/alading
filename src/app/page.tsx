@@ -1,14 +1,14 @@
 "use client"
 import { TypewriterEffect } from "@/components/ui/TypewriterEffect"
 import { HoverBorderGradient } from "@/components/ui/HoverBorderGradient"
-import { SparklesCore } from "@/components/ui/SparklesCore"
-import { InterviewSimulator } from "@/components/interview/InterviewSimulator"
 import { ThemeToggle } from "@/components/ui/ThemeToggle"
 import { BackgroundBeamsWithCollision } from "@/components/ui/BackgroundBeamsWithCollision"
 import { motion } from "framer-motion"
 import { useState } from "react"
 import { InterviewSetup } from "@/components/interview/InterviewSetup"
-import { InterviewConfig } from "@/types/interview"
+import Link from 'next/link';
+import { Icons } from '@/constants/icons';
+
 const words = [
   { text: "准备好" },
   { text: "提升", className: "text-blue-500 dark:text-blue-500" },
@@ -20,24 +20,29 @@ export default function AIInterviewSimulator() {
   const [currentView, setCurrentView] = useState<
     "home" | "setup" | "interview" | "completed"
   >("home");
-  const [interviewConfig, setInterviewConfig] = useState<InterviewConfig>({});
 
   const startSetup = () => {
     setCurrentView("setup");
   };
 
-  const handleSetupComplete = (config: InterviewConfig) => {
-    setInterviewConfig(config);
+  const handleSetupComplete = () => {
     setCurrentView("interview");
-  };
-
-  const completeInterview = () => {
-    setCurrentView("completed");
   };
 
   return (
     <BackgroundBeamsWithCollision className="min-h-screen">
-      <ThemeToggle />
+      <div className="absolute top-4 right-4 flex items-center gap-2">
+        <ThemeToggle />
+        <Link 
+          href="/settings" 
+          className="w-10 h-10 rounded-lg bg-white dark:bg-black text-black dark:text-white 
+                   transition-colors border border-black/10 dark:border-white/10 
+                   flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-900"
+          title="设置"
+        >
+          <Icons.settings className="w-5 h-5" />
+        </Link>
+      </div>
       {currentView === "home" ? (
         <div className="flex flex-col items-center justify-center min-h-screen p-4">
           <motion.div
