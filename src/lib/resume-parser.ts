@@ -4,9 +4,19 @@ import * as pdfjs from "pdfjs-dist";
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.js';
 
 export interface ResumeData {
-  text: string;    // 简历的完整文本内容
-  name?: string;   // 可能的姓名
-  age?: number;    // 可能的年龄
+  text: string;    
+  name?: string;   
+  age?: number;    
+}
+
+// 使用 PDF.js 的类型定义
+interface TextItem {
+  str: string;
+  transform?: number[];
+  width?: number;
+  height?: number;
+  dir?: string;
+  fontName?: string;
 }
 
 /**
@@ -21,7 +31,12 @@ export const readPdf = async (fileUrl: string): Promise<ResumeData> => {
     const page = await pdfDoc.getPage(i);
     const content = await page.getTextContent();
     const pageText = content.items
-      .map((item: any) => item.str)
+      .map((item) => {
+        if ('str' in item) {
+          return (item as TextItem).str;
+        }
+        return '';
+      })
       .join(' ');
     fullText += pageText + ' ';
   }

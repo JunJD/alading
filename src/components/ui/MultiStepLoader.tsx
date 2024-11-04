@@ -10,28 +10,28 @@ export interface LoadingState {
 interface MultiStepLoaderProps {
   steps?: string[];
   loadingStates?: LoadingState[];
-  loading?: boolean;
-  duration?: number;
-  loop?: boolean;
+  _loading?: boolean;
+  _duration?: number;
+  _loop?: boolean;
 }
 
 export function MultiStepLoader({ 
   steps,
   loadingStates,
-  loading = true,
-  duration = 2000,
-  loop = false 
+  _loading = true,
+  _duration = 2000,
+  _loop = false 
 }: MultiStepLoaderProps) {
   // 如果提供了 steps，将其转换为 loadingStates
-  const states = loadingStates || steps?.map((text, index) => ({
-    id: `step-${index}`,
+  const states = loadingStates || steps?.map((text) => ({
+    id: `step-${Math.random().toString(36).substr(2, 9)}`,
     text,
-    status: index === 0 ? 'loading' as const : 'pending' as const
+    status: 'pending' as const
   })) || [];
 
   return (
     <div className="space-y-4">
-      {states.map((state, index) => (
+      {states.map((state) => (
         <motion.div
           key={state.id}
           initial={{ opacity: 0, y: 10 }}

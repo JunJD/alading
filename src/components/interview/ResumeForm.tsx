@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import { Modal, ModalBody, ModalContent, ModalFooter, ModalTrigger } from "../ui/Model";
-import { useResumeStore } from "@/stores/useResumeStore";
 import { ResumeInfo } from "@/types/resume";
 
 interface ResumeFormProps {

@@ -2,12 +2,20 @@ import { useResumeStore } from "@/stores/useResumeStore";
 import { ResumeCard } from "./ResumeCard";
 import { ResumeForm } from "./ResumeForm";
 
+interface PreviewProps {
+  data: {
+    name?: string;
+    age?: number;
+    text?: string;
+  }
+}
+
 export function ResumePreview({ onComplete }: { onComplete: () => void }) {
   const resume = useResumeStore();
 
   if (!resume.name) return null;
 
-  const handleSubmit = (data: any) => {
+  const handleSubmit = (data: PreviewProps['data']) => {
     // 更新 store 中的数据
     resume.setResume(data);
     onComplete();

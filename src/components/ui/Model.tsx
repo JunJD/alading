@@ -20,6 +20,14 @@ const ModalContext = createContext<ModalContextType | undefined>(undefined);
 export const ModalProvider = ({ children }: { children: ReactNode }) => {
     const [open, setOpen] = useState(false);
 
+    useEffect(() => {
+        if (open) {
+            document.body.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "auto";
+        }
+    }, [open]);
+
     return (
         <ModalContext.Provider value={{ open, setOpen }}>
             {children}
@@ -53,6 +61,7 @@ export const ModalTrigger = ({
         if (autoOpen) {
             setOpen(true);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [autoOpen]);
     return (
         <button
@@ -228,15 +237,14 @@ const CloseIcon = () => {
 // Add it in a separate file, I've added here for simplicity
 export const useOutsideClick = (
     ref: React.RefObject<HTMLDivElement>,
-    callback: Function
+    callback: () => void
 ) => {
     useEffect(() => {
-        const listener = (event: any) => {
-            // DO NOTHING if the element being clicked is the target element or their children
-            if (!ref.current || ref.current.contains(event.target)) {
+        const listener = (event: MouseEvent | TouchEvent) => {
+            if (!ref.current || ref.current.contains(event.target as Node)) {
                 return;
             }
-            callback(event);
+            callback();
         };
 
         document.addEventListener("mousedown", listener);
