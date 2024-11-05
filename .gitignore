@@ -31,6 +31,7 @@ yarn-error.log*
 
 # env files (can opt-in for commiting if needed)
 .env*
+.next
 
 # vercel
 .vercel
@@ -41,3 +42,12 @@ next-env.d.ts
 
 # VAD files
 public/vad/
+
+# 忽略SOP相关的Markdown文件
+second_child_mom_account.md
+first_time_mom_account.md
+career_mom_account.md
+diet_expert_account.md
+gold_certificate_account.md
+official_account.md
+sop.md
