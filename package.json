@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "npx next-ws-cli@latest patch --force"
+    "postinstall": "npx next-ws-cli@latest patch"
   },
   "dependencies": {
     "@ricky0123/vad-react": "^0.0.25",
