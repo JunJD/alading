@@ -28,7 +28,8 @@ const nextConfig = {
     config.externals.push({
       'utf-8-validate': 'commonjs utf-8-validate',
       'bufferutil': 'commonjs bufferutil',
-      'canvas': 'commonjs canvas'
+      'canvas': 'commonjs canvas',
+      'ws': 'commonjs ws'
     });
 
     config.module = config.module || {};
@@ -37,6 +38,16 @@ const nextConfig = {
       test: /\.node$/,
       use: 'node-loader',
     });
+
+    config.resolve = config.resolve || {};
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      net: false,
+      dns: false,
+      tls: false,
+      fs: false,
+      path: false
+    };
 
     return config;
   },
@@ -56,6 +67,10 @@ const nextConfig = {
       },
     ];
   },
+  // 添加实验性配置
+  experimental: {
+    serverComponentsExternalPackages: ['ws', 'bufferutil', 'utf-8-validate', 'canvas'],
+  }
 };
 
 export default nextConfig; 
