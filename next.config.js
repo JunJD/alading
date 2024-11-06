@@ -1,8 +1,7 @@
 
-import type { NextConfig } from 'next';
 import CopyPlugin from "copy-webpack-plugin";
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   webpack: (config) => {
     if (!config.plugins) {
       config.plugins = [];
