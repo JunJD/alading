@@ -1,4 +1,3 @@
-
 import CopyPlugin from "copy-webpack-plugin";
 
 const nextConfig = {
@@ -29,6 +28,14 @@ const nextConfig = {
     config.externals.push({
       'utf-8-validate': 'commonjs utf-8-validate',
       'bufferutil': 'commonjs bufferutil',
+      'canvas': 'commonjs canvas'
+    });
+
+    config.module = config.module || {};
+    config.module.rules = config.module.rules || [];
+    config.module.rules.push({
+      test: /\.node$/,
+      use: 'node-loader',
     });
 
     return config;
@@ -51,4 +58,4 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default nextConfig; 
