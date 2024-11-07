@@ -3,7 +3,7 @@ import { generateId, base64ToInt16Array, int16ArrayToWavBuffer, int16ArrayToBase
 import { getInterview } from '@/constants/interview';
 import { getInterviewType } from '@/constants/interviewTypes';
 import { InterviewProgress } from '@/types/realtime';
-
+export const runtime = 'edge';
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
     baseURL: process.env.OPENAI_API_URL || 'https://api.openai.com/v1',
@@ -253,7 +253,7 @@ export function SOCKET(
                 if (payload.history) {
                     const stage = determinePhase(payload.history);
                     
-                    // 如果是新阶段的第一条消息，添加引导���提示
+                    // 如果是新阶段的第一条消息，添加引导提示
                     if (stage.id !== currentPhase.id) {
                         const processRule = interviewType.processRules.find(
                             rule => rule.description === stage.name
