@@ -49,28 +49,29 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "AI 模拟面试 - 提升面试技巧",
+    "url": "https://www.alading.dingjunjie.com",
+    "logo": "/vercel.svg",
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "telephone": "+86 131 5662 6720",
+      "contactType": "Customer Service"
+    }
+  };
+
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <meta name="keywords" content="AI, 模拟面试, 面试技巧, 人工智能, 职业发展" />
         <meta name="author" content="开发者丁俊杰" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <script type="application/ld+json">
-          {`
-            {
-              "@context": "https://schema.org",
-              "@type": "Organization",
-              "name": "AI 模拟面试 - 提升面试技巧",
-              "url": "https://www.alading.dingjunjie.com",
-              "logo": "/vercel.svg",
-              "contactPoint": {
-                "@type": "ContactPoint",
-                "telephone": "+86 131 5662 6720",
-                "contactType": "Customer Service"
-              }
-            }
-          `}
-        </script>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
       </head>
       <body
         className={`${alibabaPuHuiTi.variable} ${geistMono.variable} antialiased`}
