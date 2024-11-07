@@ -3,7 +3,7 @@ import { generateId, base64ToInt16Array, int16ArrayToWavBuffer, int16ArrayToBase
 import { getInterview } from '@/constants/interview';
 import { getInterviewType } from '@/constants/interviewTypes';
 import { InterviewProgress } from '@/types/realtime';
-export const runtime = 'edge';
+
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
     baseURL: process.env.OPENAI_API_URL || 'https://api.openai.com/v1',

@@ -2,11 +2,13 @@
     "cSpell.words": [
         "bufferutil",
         "clsx",
+        "logits",
         "lucide",
         "ondataavailable",
         "onnx",
         "onnxruntime",
         "puhui",
+        "sess",
         "silero",
         "tabler",
         "tsparticles",

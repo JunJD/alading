@@ -137,7 +137,7 @@ export function InterviewRoom({ config }: InterviewRoomProps) {
     connectConversation,
     disconnectConversation,
     isConnected,
-    // playAudio,
+    switchLanguage
   } = useVoiceInput({
     onProcessAudio: handleProcessAudio,
   });
@@ -281,6 +281,12 @@ export function InterviewRoom({ config }: InterviewRoomProps) {
 
       router.push(`/interview/score?score=${score}&feedback=${feedback}`);
     };
+
+    // 切换语言的示例
+    useEffect(() => {
+      // 根据面试类型或用户选择切换语言
+      switchLanguage('zh'); // 或其他支持的语言
+    }, [switchLanguage]);
 
     return (
       <div className="relative min-h-screen flex">

@@ -33,6 +33,7 @@
     "react-hot-toast": "^2.4.1",
     "simplex-noise": "^4.0.3",
     "tailwind-merge": "^2.5.4",
+    "worker-loader": "^3.0.8",
     "ws": "^8.18.0",
     "zustand": "^5.0.1"
   },

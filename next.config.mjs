@@ -32,12 +32,11 @@ const nextConfig = {
       'ws': 'commonjs ws'
     });
 
-    config.module = config.module || {};
-    config.module.rules = config.module.rules || [];
-    config.module.rules.push({
-      test: /\.node$/,
-      use: 'node-loader',
-    });
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+      layers: true
+    };
 
     config.resolve = config.resolve || {};
     config.resolve.fallback = {
@@ -46,7 +45,7 @@ const nextConfig = {
       dns: false,
       tls: false,
       fs: false,
-      path: false
+      path: false,
     };
 
     return config;
@@ -70,6 +69,7 @@ const nextConfig = {
   // 添加实验性配置
   experimental: {
     serverComponentsExternalPackages: ['ws', 'bufferutil', 'utf-8-validate', 'canvas'],
+    esmExternals: 'loose',
   }
 };
 

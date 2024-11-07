@@ -1,6 +1,7 @@
 "use client";
 import { useState, useCallback, useRef } from 'react';
 import { WavRecorder, WavStreamPlayer } from '@/lib/wavtools';
+import { Whisper, WhisperLanguage } from '@/lib/localWhisper/whisper';
 
 interface UseVoiceInputProps {
   onProcessAudio?: (audioData: Int16Array) => Promise<Int16Array>;
@@ -22,6 +23,9 @@ export const useVoiceInput = ({
   const requestCounterRef = useRef(0);
   const lastProcessedRequestRef = useRef(-1);
 
+  const whisperRef = useRef<Whisper>(new Whisper('zh'));
+  const processingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const appendAudio = useCallback((audioData: Int16Array) => {
     if (!isRecordingRef.current) {
       audioHistoryRef.current.push(audioData);
@@ -41,7 +45,10 @@ export const useVoiceInput = ({
   };
 
   const connectConversation = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    
     try {
+      await whisperRef.current.init();
       await wavRecorderRef.current.begin();
       await wavStreamPlayerRef.current.connect();
       isConnectedRef.current = true;
@@ -84,12 +91,15 @@ export const useVoiceInput = ({
       localInt16Array.current = new Int16Array(0);
       isRecordingRef.current = true;
       setIsRecording(true);
+
       await wavRecorderRef.current.record((data) => {
         localInt16Array.current = mergeInt16Arrays(
           localInt16Array.current,
           data.mono,
         );
       });
+
+      processingIntervalRef.current = setInterval(processAudioBuffer, 5000);
       console.log('开始录音成功');
     } catch (error) {
       console.error('开始录音失败:', error);
@@ -147,15 +157,22 @@ export const useVoiceInput = ({
     if (!isRecordingRef.current) return;
 
     try {
+      if (processingIntervalRef.current) {
+        clearInterval(processingIntervalRef.current);
+        processingIntervalRef.current = null;
+      }
+
       isRecordingRef.current = false;
       setIsRecording(false);
       await wavRecorderRef.current.pause();
       
       if (localInt16Array.current.length > 0) {
+        await processAudioBuffer();
+      }
+
+      if (localInt16Array.current.length > 0) {
         const currentAudio = localInt16Array.current.slice();
         localInt16Array.current = new Int16Array(0);
-        
-        console.log('录音结束，数据长度:', currentAudio.length);
         
         if (onProcessAudio) {
           try {
@@ -180,6 +197,26 @@ export const useVoiceInput = ({
     }
   }, [onProcessAudio, playAudio, appendAudio]);
 
+  const processAudioBuffer = async () => {
+    // 暂时不用
+    const ignore = true;
+    if (ignore || !whisperRef.current || localInt16Array.current.length < 16000 * 5) return;
+
+    try {
+      const audioData = localInt16Array.current.slice(0, 16000 * 5);
+      localInt16Array.current = localInt16Array.current.slice(16000 * 5);
+
+      const text = await whisperRef.current.transcribe(audioData);
+      console.log('识别结果:', text);
+    } catch (error) {
+      console.error('音频处理失败:', error);
+    }
+  }
+
+  const switchLanguage = useCallback((language: WhisperLanguage) => {
+    whisperRef.current.setLanguage(language);
+  }, []);
+
   return {
     isRecording,
     isConnected: isConnectedRef.current,
@@ -190,5 +227,6 @@ export const useVoiceInput = ({
     disconnectConversation,
     playAudio,
     appendAudio,
+    switchLanguage,
   };
 };
