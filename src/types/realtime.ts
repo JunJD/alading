@@ -18,7 +18,7 @@ export interface RealTimeMessage {
 // 服务器响应消息
 export interface RealTimeResponse extends RealTimeMessage {
     author: 'Server';
-    messageType: 'transcription' | 'response' | 'phase_change' | 'begin';
+    messageType: 'transcription' | 'response' | 'phase_change' | 'begin' | 'end';
     progress?: InterviewProgress;
 }
 

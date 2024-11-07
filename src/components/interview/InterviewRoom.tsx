@@ -11,7 +11,6 @@ import { RealtimeClient } from '@/lib/realtime-client';
 import { RealTimeResponse, RealTimeError, InterviewProgress } from '@/types/realtime';
 import { base64ToInt16Array } from "@/lib/utils"
 
-
 interface Message {
   id: string;
   type: 'user' | 'ai';
@@ -226,20 +225,23 @@ export function InterviewRoom({ config }: InterviewRoomProps) {
       setProgress(message.progress);
     }
 
-    if (message.type === 'text' && message.messageType === 'begin') {
-      console.log('begin');
-      const data = message;
-      if (data.messageType === 'begin' && data.content) {
-
-        setMessages(prev => {
-          if (prev.some(msg => msg.id === data.event_id)) return prev;
-          return [...prev, {
-            id: data.event_id,
-            type: 'ai',
-            content: data.content || '',
-            timestamp: new Date()
-          }];
-        });
+    if (message.type === 'text') {
+      if (message.messageType === 'end') {
+        handleInterviewEnd();
+      } else if (message.messageType === 'begin') {
+        console.log('begin');
+        const data = message;
+        if (data.messageType === 'begin' && data.content) {
+          setMessages(prev => {
+            if (prev.some(msg => msg.id === data.event_id)) return prev;
+            return [...prev, {
+              id: data.event_id,
+              type: 'ai',
+              content: data.content || '',
+              timestamp: new Date()
+            }];
+          });
+        }
       }
     }
   };
@@ -271,6 +273,14 @@ export function InterviewRoom({ config }: InterviewRoomProps) {
         clientRef.current.connect();
       }
     }, []);
+
+    const handleInterviewEnd = () => {
+      // 假设评分和反馈是从服务器获取的
+      const score = 85; // 示例得分
+      const feedback = "您的表现非常出色，继续保持！";
+
+      router.push(`/interview/score?score=${score}&feedback=${feedback}`);
+    };
 
     return (
       <div className="relative min-h-screen flex">

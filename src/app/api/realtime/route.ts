@@ -23,7 +23,7 @@ interface RealTimePayload {
     event_id: string;
     author: 'Server' | 'Client';
     content?: string;
-    messageType?: 'transcription' | 'response' | 'phase_change' | 'begin';
+    messageType?: 'transcription' | 'response' | 'phase_change' | 'begin' | 'end';
     audio?: string;
     history?: { role: 'user' | 'assistant'; content: string }[];
     progress?: {

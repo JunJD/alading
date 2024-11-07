@@ -43,8 +43,9 @@ export const projectInterview: InterviewType = {
           weight: 0.4,
           criteria: ["技术理解程度", "方案合理性"]
         }
-      ]
-    }
+      ],
+      finalStage: true
+    },
   ],
   processRules: [
     {

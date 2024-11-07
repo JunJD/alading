@@ -48,7 +48,8 @@ export const selfIntroInterview: InterviewType = {
           weight: 0.3,
           criteria: ["答案是否具体", "是否有独特见解"]
         }
-      ]
+      ],
+      finalStage: true
     }
   ],
   processRules: [

@@ -43,7 +43,8 @@ export const salaryInterview: InterviewType = {
           weight: 0.4,
           criteria: ["是否能合理争取", "是否能灵活调整"]
         }
-      ]
+      ],
+      finalStage: true
     }
   ],
   processRules: [

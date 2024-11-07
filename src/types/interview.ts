@@ -43,6 +43,7 @@ export interface InterviewStage {
     weight: number;
     criteria: string[];
   }[];
+  finalStage?: boolean; // if true, this is the last stage of the interview
 }
 
 export interface InterviewRule {
