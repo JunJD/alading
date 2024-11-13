@@ -9,17 +9,30 @@ export interface Industry {
 }
 
 export interface IndustryLogic {
-  systemPrompt: string;
+  basePrompt: string;
   openingResponse: string;
-  evaluationCriteria: IndustryCriterion[];
-  keyPoints: string[];
+  evaluationCriteria: {
+    id: string;
+    name: string;
+    description: string;
+    weight: number;
+  }[];
 }
 
-export interface IndustryCriterion {
+export interface EvaluationPoint {
+  criteriaId: string;
+  weight: number;
+  details: string[];
+}
+
+export interface Stage {
   id: string;
   name: string;
   description: string;
-  weight: number;
+  prompts: string[];
+  expectedDuration: number;
+  evaluationPoints: EvaluationPoint[];
+  finalStage?: boolean;
 }
 
 export interface InterviewType {
@@ -27,30 +40,13 @@ export interface InterviewType {
   name: string;
   icon: string;
   description: string;
+  stages: Stage[];
+}
+
+export interface CompleteInterviewConfig {
+  type: InterviewType;
+  industry: IndustryLogic;
   systemPrompt: string;
-  stages: InterviewStage[];
-  processRules: InterviewRule[];
-}
-
-export interface InterviewStage {
-  id: string;
-  name: string;
-  description: string;
-  prompts: string[];
-  expectedDuration: number;
-  evaluationPoints: {
-    name: string;
-    weight: number;
-    criteria: string[];
-  }[];
-  finalStage?: boolean; // if true, this is the last stage of the interview
-}
-
-export interface InterviewRule {
-  id: string;
-  description: string;
-  condition?: string;
-  action: string;
 }
 
 export type InterviewConfig = {

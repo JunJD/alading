@@ -62,7 +62,7 @@ export function InterviewSetup({ onBack, onComplete }: InterviewSetupProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {INTERVIEW_TYPES.map((type) => (
+          {Object.values(INTERVIEW_TYPES).map((type) => (
             <motion.div
               key={type.id}
               whileHover={{ scale: 1.02 }}

@@ -14,13 +14,22 @@ interface ResumeState extends ResumeInfo {
   setError: (error?: string) => void;
 }
 
+const initialState: Partial<ResumeInfo> = {
+  name: undefined,
+  age: undefined,
+  text: undefined,
+  industry: undefined,
+  pdfBase64: undefined
+};
+
 export const useResumeStore = create<ResumeState>()(
   persist(
     (set) => ({
+      ...initialState,
       isLoading: false,
       
       setResume: (resume) => set((state) => ({ ...state, ...resume })),
-      clearResume: () => set({ name: undefined, age: undefined, text: undefined, industry: undefined, pdfBase64: undefined }),
+      clearResume: () => set({ ...initialState, isLoading: false, error: undefined }),
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
     }),

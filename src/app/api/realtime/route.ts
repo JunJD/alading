@@ -1,8 +1,11 @@
 import OpenAI from 'openai';
 import { generateId, base64ToInt16Array, int16ArrayToWavBuffer, int16ArrayToBase64 } from '@/lib/utils';
-import { getInterview } from '@/constants/interview';
+
 import { getInterviewType } from '@/constants/interviewTypes';
+import { getInterviewLogic } from '@/constants/interviewLogics';
 import { InterviewProgress } from '@/types/realtime';
+import { SystemMessageBuilder } from '@/builders/MessageBuilder';
+import { debugLogger } from '@/utils/debugLogger';
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -44,7 +47,9 @@ export function SOCKET(
     const type = url.searchParams.get('type');
     const resume = JSON.parse(url.searchParams.get('resume') || '{}');
     const model = url.searchParams.get('model') || 'gpt-3.5-turbo';
-    const interview = getInterview(industry!);
+
+    // 获取面试配置
+    const interviewLogic = getInterviewLogic(industry!);
     const interviewType = getInterviewType(type!);
     const { send, broadcast } = createHelpers(client, server);
 
@@ -58,11 +63,21 @@ export function SOCKET(
         baseURL: baseUrl || process.env.OPENAI_API_URL || 'https://api.openai.com/v1',
     });
 
-    if (!interview || !interviewType) {
+    if (!interviewLogic || !interviewType) {
         send({
             author: 'Server',
             type: 'text',
             content: 'Interview not found',
+            event_id: generateId('evt_'),
+        });
+        return;
+    }
+
+    if (!interviewLogic || !interviewType) {
+        send({
+            author: 'Server',
+            type: 'text',
+            content: 'Interview configuration not found',
             event_id: generateId('evt_'),
         });
         return;
@@ -80,7 +95,7 @@ export function SOCKET(
     );
 
     // 构建开场消息
-    const openingMessage = `${interview.openingResponse}\n\n${currentPhase.prompts[0]}`;
+    const openingMessage = `${interviewLogic.openingResponse}\n\n${currentPhase.prompts[0]}`;
     const openingResponseId = generateId('evt_');
 
     // 发送开场白和初始进度
@@ -94,15 +109,33 @@ export function SOCKET(
     });
 
     const determinePhase = (history: { role: string; content: string }[]) => {
+        console.log('=== Phase Transition Debug ===');
+        console.log('Message Count:', history.length);
+        console.log('Current Phase:', currentPhase.id);
+        
         const messageCount = history.length;
         const currentStage = interviewType.stages.find(stage => {
             const previousStagesLength = interviewType.stages
                 .slice(0, interviewType.stages.indexOf(stage))
                 .reduce((acc, s) => acc + s.expectedDuration, 0);
-            return messageCount < previousStagesLength + stage.expectedDuration;
+            const shouldBeInThisStage = messageCount < previousStagesLength + stage.expectedDuration;
+            
+            console.log('Stage Check:', {
+                stageId: stage.id,
+                previousLength: previousStagesLength,
+                stageDuration: stage.expectedDuration,
+                threshold: previousStagesLength + stage.expectedDuration,
+                shouldBeInThisStage
+            });
+            
+            return shouldBeInThisStage;
         }) || interviewType.stages[interviewType.stages.length - 1];
 
         if (currentPhase.id !== currentStage.id) {
+            console.log('Phase Changed:', {
+                from: currentPhase.id,
+                to: currentStage.id
+            });
             currentPhase = currentStage;
             currentPhaseIndex = interviewType.stages.indexOf(currentStage);
             
@@ -135,7 +168,7 @@ export function SOCKET(
             // 处理开始消息
             if (payload.type === 'text' && payload.messageType === 'begin') {
                 // 发送开场白和初始进度
-                const openingMessage = `${interview.openingResponse}\n\n${currentPhase.prompts[0]}`;
+                const openingMessage = `${interviewLogic.openingResponse}\n\n${currentPhase.prompts[0]}`;
                 const openingResponseId = generateId('evt_');
 
                 send({
@@ -199,48 +232,12 @@ export function SOCKET(
                 // 2. 生成 AI 回复
                 const systemMessage = {
                     role: "system" as const,
-                    content: `
-                        ${interview.systemPrompt}
-                        
-                        ${interviewType.systemPrompt}
-                        
-                        候选人简历信息：
-                        ${resume ? `
-                        基本信息：
-                        - 姓名：${resume.name || '未提供'}
-                        - 年龄：${resume.age || '未提供'}
-                        - 简历详情：${resume.text || '未提供'}
-                        ` : '未提供简历信息'}
-                        
-                        当前面试环节：${currentPhase.name}
-                        环节目标：${currentPhase.description}
-                        
-                        行业关注重点：
-                        ${interview.keyPoints.map(point => `- ${point}`).join('\n')}
-                        
-                        行业评估标准：
-                        ${interview.evaluationCriteria.map(criterion => 
-                            `- ${criterion.name}(权重${criterion.weight}): ${criterion.description}`
-                        ).join('\n')}
-                        
-                        当前环节评估重点：
-                        ${currentPhase.evaluationPoints.map(point => 
-                            `- ${point.name}(权重${point.weight}):\n  ${point.criteria.join('\n  ')}`
-                        ).join('\n')}
-                        
-                        面试要求：
-                        1. 始终以${industry}面试官的身份进行对话
-                        2. 结合候选人背景和当前面试环节进行提问
-                        3. 严格遵循评估标准进行评判
-                        4. 控制每次回复在100字以内
-                        5. ${interviewType.processRules.find(rule => rule.description === currentPhase.name)?.action || 
-                            interviewType.processRules[0].action}
-                        
-                        注意事项：
-                        1. 仔细阅读候选人的简历文本，从中提取关键信息
-                        2. 根据简历内容进行针对性提问
-                        3. 结合行业背景和面试类型设计问题
-                    `
+                    content: new SystemMessageBuilder(
+                        interviewLogic,
+                        interviewType,
+                        currentPhase,
+                        resume
+                    ).build(industry!)
                 };
 
                 const messages = [
@@ -248,6 +245,8 @@ export function SOCKET(
                     ...(payload.history || []),
                     { role: "user" as const, content: transcription.text }
                 ];
+            
+                await debugLogger.writeLog('messages', JSON.stringify(messages, null, 2));
 
                 // 更新面试阶段
                 if (payload.history) {
@@ -255,16 +254,10 @@ export function SOCKET(
                     
                     // 如果是新阶段的第一条消息，添加引导提示
                     if (stage.id !== currentPhase.id) {
-                        const processRule = interviewType.processRules.find(
-                            rule => rule.description === stage.name
-                        );
-                        
-                        if (processRule) {
-                            messages.push({
-                                role: "system" as const,
-                                content: `注意：现在进入${stage.name}阶段，${processRule.action}`
-                            });
-                        }
+                        messages.push({
+                            role: "system" as const,
+                            content: `注意：现在进入${stage.name}阶段，目标是${stage.description}`
+                        });
                     }
                 }
 

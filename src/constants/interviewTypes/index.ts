@@ -3,19 +3,15 @@ import { selfIntroInterview } from './self-intro';
 import { projectInterview } from "./project";
 import { salaryInterview } from "./salary";
 
-
-export const INTERVIEW_TYPES = [
-    selfIntroInterview,
-    projectInterview,
-    salaryInterview
-] as const;
+// 面试类型配置
+export const INTERVIEW_TYPES = {
+    'self-intro': selfIntroInterview,
+    'project': projectInterview,
+    'salary': salaryInterview
+} as const;
 
 export const getInterviewType = (type: string): InterviewType | undefined => {
-    return INTERVIEW_TYPES.find(t => t.id === type);
+    return INTERVIEW_TYPES[type as keyof typeof INTERVIEW_TYPES];
 };
 
-export {
-    selfIntroInterview,
-    projectInterview,
-    salaryInterview
-}
+export type InterviewTypeId = keyof typeof INTERVIEW_TYPES;

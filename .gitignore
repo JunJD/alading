@@ -41,3 +41,6 @@ next-env.d.ts
 
 # VAD files
 public/vad/
+
+# logs
+logs/

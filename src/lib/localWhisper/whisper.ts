@@ -35,7 +35,7 @@ export class Whisper {
                 logSeverityLevel: 3,
                 logVerbosityLevel: 3,
             };
-            this.sess = await ort.InferenceSession.create("/whisper_small_int8_cpu_ort_1.18.0.onnx", opt);
+            // this.sess = await ort.InferenceSession.create("/whisper_small_int8_cpu_ort_1.18.0.onnx", opt);
             console.log('Whisper模型加载成功');
         } catch (error) {
             console.error('Whisper模型加载失败:', error);
