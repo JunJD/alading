@@ -29,7 +29,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# env files (can opt-in for commiting if needed)
+# env files (can opt-in for committing if needed)
 .env*
 
 # vercel
@@ -44,3 +44,8 @@ public/vad/
 
 # logs
 logs/
+*.log
+
+# Large model files
+*.onnx
+public/whisper_small_int8_cpu_ort_1.18.0.onnx
