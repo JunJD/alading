@@ -12,7 +12,7 @@ import { WavPacker } from './wav_packer.js';
  */
 
 /**
- * Records live stream of user audio as PCM16 "audio/wav" data
+ * 将用户音频的实时流记录为PCM16“音频/wav”数据
  * @class
  */
 export class WavRecorder {

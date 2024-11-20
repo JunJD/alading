@@ -5,10 +5,12 @@ import { Whisper, WhisperLanguage } from '@/lib/localWhisper/whisper';
 
 interface UseVoiceInputProps {
   onProcessAudio?: (audioData: Int16Array) => Promise<Int16Array>;
+  onTranscript?: (text: string) => void;
 }
 
 export const useVoiceInput = ({
-  onProcessAudio
+  onProcessAudio,
+  onTranscript
 }: UseVoiceInputProps) => {
   const [isRecording, setIsRecording] = useState(false);
 
@@ -25,6 +27,9 @@ export const useVoiceInput = ({
 
   const whisperRef = useRef<Whisper>(new Whisper('zh'));
   const processingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const textStorageRef = useRef<string[]>([]);
+  const stabilizedTextRef = useRef<string>('');
 
   const appendAudio = useCallback((audioData: Int16Array) => {
     if (!isRecordingRef.current) {
@@ -99,13 +104,14 @@ export const useVoiceInput = ({
         );
       });
 
-      processingIntervalRef.current = setInterval(processAudioBuffer, 5000);
+      processingIntervalRef.current = setInterval(processAudioBuffer, 1000);
       console.log('开始录音成功');
     } catch (error) {
       console.error('开始录音失败:', error);
       isRecordingRef.current = false;
       setIsRecording(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const playAudio = useCallback(async (audioData: Int16Array, requestId: number) => {
@@ -195,23 +201,68 @@ export const useVoiceInput = ({
     } catch (error) {
       console.error('停止录音失败:', error);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onProcessAudio, playAudio, appendAudio]);
 
   const processAudioBuffer = async () => {
-    // 暂时不用
-    const ignore = true;
-    if (ignore || !whisperRef.current || localInt16Array.current.length < 16000 * 5) return;
+    if (!whisperRef.current || localInt16Array.current.length < 16000) return;
 
     try {
-      const audioData = localInt16Array.current.slice(0, 16000 * 5);
-      localInt16Array.current = localInt16Array.current.slice(16000 * 5);
+      const recentAudioLength = Math.min(32000, localInt16Array.current.length);
+      const audioToProcess = localInt16Array.current.slice(-recentAudioLength);
+      
+      localInt16Array.current = localInt16Array.current.slice(0, -recentAudioLength);
+      
+      const transcriptionPromise = whisperRef.current.transcribe(audioToProcess);
+      
+      let processedAudioPromise;
+      if (onProcessAudio) {
+        processedAudioPromise = onProcessAudio(audioToProcess);
+      }
 
-      const text = await whisperRef.current.transcribe(audioData);
-      console.log('识别结果:', text);
+      const text = await transcriptionPromise;
+      console.log('text', text)
+      if (text) {
+        textStorageRef.current.push(text);
+        
+        if (textStorageRef.current.length >= 2) {
+          const lastTwo = textStorageRef.current.slice(-2);
+          const commonPrefix = findCommonPrefix(lastTwo[0], lastTwo[1]);
+          
+          if (commonPrefix.length > stabilizedTextRef.current.length) {
+            stabilizedTextRef.current = commonPrefix;
+            if (onTranscript) {
+              console.log('commonPrefix', commonPrefix)
+              onTranscript(commonPrefix);
+            }
+          }
+        }
+      }
+
+      if (processedAudioPromise) {
+        const processedAudio = await processedAudioPromise;
+        const currentRequestId = ++requestCounterRef.current;
+        
+        if (!isRecordingRef.current && currentRequestId > lastProcessedRequestRef.current) {
+          await playAudio(processedAudio, currentRequestId);
+          if (!isRecordingRef.current) {
+            appendAudio(processedAudio);
+          }
+        }
+      }
+
     } catch (error) {
       console.error('音频处理失败:', error);
     }
-  }
+  };
+
+  const findCommonPrefix = (str1: string, str2: string): string => {
+    let i = 0;
+    while (i < str1.length && i < str2.length && str1[i] === str2[i]) {
+      i++;
+    }
+    return str1.substring(0, i);
+  };
 
   const switchLanguage = useCallback((language: WhisperLanguage) => {
     whisperRef.current.setLanguage(language);

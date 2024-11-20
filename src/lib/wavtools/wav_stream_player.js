@@ -2,7 +2,7 @@ import { StreamProcessorSrc } from './worklets/stream_processor.js';
 import { AudioAnalysis } from './analysis/audio_analysis.js';
 
 /**
- * Plays audio streams received in raw PCM16 chunks from the browser
+ * 播放从浏览器接收到的原始PCM16块音频流
  * @class
  */
 export class WavStreamPlayer {

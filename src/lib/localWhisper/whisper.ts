@@ -1,3 +1,4 @@
+'use client';
 import * as ort from 'onnxruntime-web';
 
 // 定义支持的语言类型
@@ -17,9 +18,12 @@ const LANGUAGE_TOKEN_IDS: Record<WhisperLanguage, number> = {
 
 export class Whisper {
     private sess: ort.InferenceSession | null = null;
-    private language: WhisperLanguage = 'en';
+    private language: WhisperLanguage = 'zh';
 
-    constructor(language: WhisperLanguage = 'en') {
+    constructor(language: WhisperLanguage = 'zh') {
+        if (typeof window === 'undefined') {
+            console.log('Whisper is not supported in server-side rendering');
+        }
         ort.env.logLevel = "error";
         this.language = language;
     }
@@ -30,12 +34,24 @@ export class Whisper {
 
     async init() {
         try {
+            // 1. 配置全局环境
+            // ort.env.wasm.numThreads = navigator.hardwareConcurrency || 4;
+            // ort.env.wasm.proxy = true;  // 启用 Web Worker 代理
+            
+            // // 2. 设置 CDN 路径前缀
+            const baseUrl = window.location.origin;
+            ort.env.wasm.wasmPaths = `${baseUrl}/onnxruntime/`;  // 使用路径前缀方式
+            // 3. 配置 Session 选项
             const opt: ort.InferenceSession.SessionOptions = {
-                executionProviders: ["wasm"],
+                executionProviders: ['wasm'],  
                 logSeverityLevel: 3,
                 logVerbosityLevel: 3,
             };
-            // this.sess = await ort.InferenceSession.create("/whisper_small_int8_cpu_ort_1.18.0.onnx", opt);
+
+            this.sess = await ort.InferenceSession.create(
+                "/whisper_small_int8_cpu_ort_1.18.0.onnx", 
+                opt
+            );
             console.log('Whisper模型加载成功');
         } catch (error) {
             console.error('Whisper模型加载失败:', error);

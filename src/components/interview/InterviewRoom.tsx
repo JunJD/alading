@@ -42,6 +42,8 @@ export function InterviewRoom({ config }: InterviewRoomProps) {
     responseId?: string;
   }>({});
 
+  const [localTranscript, setLocalTranscript] = useState('');
+
   const handleProcessAudio = useCallback(async (audioData: Int16Array): Promise<Int16Array> => {
     return new Promise((resolve, reject) => {
       try {
@@ -140,6 +142,10 @@ export function InterviewRoom({ config }: InterviewRoomProps) {
     switchLanguage
   } = useVoiceInput({
     onProcessAudio: handleProcessAudio,
+    onTranscript: (text) => {
+      setLocalTranscript(text);
+      console.log('本地转录:', text);
+    }
   });
 
   const isMounted = useRef(false);
@@ -417,6 +423,14 @@ export function InterviewRoom({ config }: InterviewRoomProps) {
             </div>
           </div>
         </div>
+
+        {isRecording && (
+          <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 
+                        bg-black/50 backdrop-blur-sm rounded-lg p-4 
+                        text-white/80 max-w-lg text-center">
+            {localTranscript || '正在听你说...'}
+          </div>
+        )}
       </div>
     );
   } 

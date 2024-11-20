@@ -1,6 +1,7 @@
 {
     "cSpell.words": [
         "bufferutil",
+        "callout",
         "clsx",
         "logits",
         "lucide",
@@ -14,6 +15,7 @@
         "tsparticles",
         "wavtools",
         "worklets",
+        "xenova",
         "zustand"
     ]
 }
